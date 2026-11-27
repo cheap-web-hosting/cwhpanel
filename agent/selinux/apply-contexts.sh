@@ -148,6 +148,22 @@ unload() {
     [ "$_left" = "0" ] && break
     sleep 1
   done
+  # Deterministic fallback: libsemanage can get stuck in a state where every
+  # removal fails ("type <x> is not defined" / "Failed to resolve
+  # typeattributeset") even though the module is still installed. Drop the
+  # module's store directory at every priority and rebuild the policy — scoped
+  # to this panel's own module names.
+  _stuck=0
+  for m in "${MODULES_DEP[@]}"; do
+    semodule -l 2>/dev/null | grep -qx "$m" && _stuck=1
+  done
+  if [ "$_stuck" = "1" ]; then
+    echo "==> Policy store rebuild (stuck modules)..."
+    for m in "${MODULES_DEP[@]}"; do
+      rm -rf /var/lib/selinux/targeted/active/modules/*/"$m" 2>/dev/null || true
+    done
+    semodule -B >/dev/null 2>&1 || true
+  fi
   for m in "${MODULES_DEP[@]}"; do
     if semodule -l 2>/dev/null | grep -qx "$m"; then
       echo "could not remove policy module: $m" >&2
