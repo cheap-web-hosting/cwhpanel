@@ -125,7 +125,7 @@ dnf -y --nobest install \
     postfix dovecot dovecot-mysql dovecot-pigeonhole \
     pdns pdns-backend-mysql \
     clamav clamav-freshclam clamd vsftpd \
-    git nodejs python3 rsync \
+    git nodejs python3 python3.11 python3.12 python3-PyMySQL libatomic bind-utils rsync \
     nginx-mod-modsecurity mod_security_crs \
     policycoreutils-python-utils policycoreutils-devel setools-console \
     jq curl openssl unzip firewalld nftables whois quota >/dev/null
@@ -630,7 +630,12 @@ if [ -f "$here/deploy/cwhpanel-fail2ban.conf" ]; then
         printf '\n[sshd]\nenabled = true\nport = ssh\nfilter = sshd\nlogpath = %%(sshd_log)s\nbackend = %%(sshd_backend)s\nmaxretry = 3\nbantime = 7200\n' >> /etc/fail2ban/jail.local
     fi
     systemctl enable --now fail2ban >/dev/null 2>&1 || warn "fail2ban failed to start"
-    fail2ban-client reload >/dev/null 2>&1 || warn "fail2ban reload failed"
+    _fb=0
+    for _i in 1 2 3 4 5; do
+        fail2ban-client reload >/dev/null 2>&1 && { _fb=1; break; }
+        sleep 1
+    done
+    [ "$_fb" = "1" ] || warn "fail2ban reload failed"
     step "fail2ban jails enabled (sshd, dovecot, postfix-sasl, vsftpd)"
     # Web-scanner / botnet jail: bans hosts probing dotfile/shell/cgi/backup
     # signatures in the nginx access logs (IP-level bounce, complements the
@@ -639,7 +644,12 @@ if [ -f "$here/deploy/cwhpanel-fail2ban.conf" ]; then
     if [ -f "$here/deploy/fail2ban-filter-nginx-scanner.conf" ] && [ -f "$here/deploy/cwhpanel-fail2ban-scanner.conf" ]; then
         cp "$here/deploy/fail2ban-filter-nginx-scanner.conf" /etc/fail2ban/filter.d/cwhpanel-nginx-scanner.conf
         cp "$here/deploy/cwhpanel-fail2ban-scanner.conf" /etc/fail2ban/jail.d/cwhpanel-scanner.conf
-        fail2ban-client reload >/dev/null 2>&1 || warn "fail2ban scanner jail reload failed"
+        _fb=0
+        for _i in 1 2 3 4 5; do
+            fail2ban-client reload >/dev/null 2>&1 && { _fb=1; break; }
+            sleep 1
+        done
+        [ "$_fb" = "1" ] || warn "fail2ban scanner jail reload failed"
         step "fail2ban web-scanner jail enabled (dotfile/shell/cgi/backup probes)"
     fi
 fi
@@ -1140,8 +1150,10 @@ log "7b/7 Server hostname DNS (SPF/DKIM/DMARC in the local PowerDNS)"
 # Seed the hostname's zone + records (A/AAAA, mail, MX, SPF, DMARC, DKIM, NS)
 # into the PowerDNS this box already runs, so host/cron/root mail authenticates
 # without an external DNS provider. Best-effort; never fails turn-up.
-if [[ -f "$here/scripts/hostname-dns.php" ]]; then
-    ( cd "$here" && php scripts/hostname-dns.php ) \
+if [[ -f "$LIVE_DIR/scripts/hostname-dns.php" ]]; then
+    # Run from the live tree: the app resolves BASE_PATH (storage, .env) from
+    # the script location, and a fresh clone has no storage/ directory.
+    ( cd "$LIVE_DIR" && php scripts/hostname-dns.php ) \
         && step "hostname DNS seeded (SPF/DKIM/DMARC)" \
         || warn "hostname DNS not seeded (re-run scripts/hostname-dns.php)"
 fi
@@ -1152,8 +1164,12 @@ log "7c/7 Server hostname TLS (panel + mail via Let's Encrypt)"
 # (http→https, ACME path exempt), points Postfix/Dovecot at it, sets APP_URL
 # to https://, and installs a weekly renewal cron. Skips cleanly when the
 # hostname is unusable; never fails turn-up (warns instead).
-if [[ -f "$here/scripts/provision-hostname-tls.php" ]]; then
-    ( cd "$here" && php scripts/provision-hostname-tls.php ) \
+if [[ -f "$LIVE_DIR/scripts/provision-hostname-tls.php" ]]; then
+    # Live tree, not the source checkout: the ACME account key is persisted in
+    # BASE_PATH/storage, which only exists in the live tree on a fresh clone
+    # (running from the source made every fresh install fail with
+    # "failed to persist ACME account key").
+    ( cd "$LIVE_DIR" && php scripts/provision-hostname-tls.php ) \
         && step "hostname TLS provisioned" \
         || warn "hostname TLS not provisioned (see output above; re-run scripts/provision-hostname-tls.php once DNS is ready)"
 fi

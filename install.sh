@@ -160,7 +160,7 @@ if command -v freshclam >/dev/null 2>&1; then
     systemctl enable --now clamav-freshclam >/dev/null 2>&1 || true
 fi
 if command -v vsftpd >/dev/null 2>&1; then
-    systemctl enable vsftpd >/dev/null 2>&1 || true
+    systemctl enable --now vsftpd >/dev/null 2>&1 || true
 fi
 # Mail: policy rate-limiter daemon.
 DB_HOST_V=$(grep -E '^DB_HOST=' "$here/.env" 2>/dev/null | cut -d= -f2- || true)
