@@ -42,7 +42,7 @@ interfaces on one server:
 | **Admin panel** | WHM (server owner) | You, the hosting provider | `https://<server>:8443/login` |
 | **Customer panel** | cPanel (website owner) | Your customers | `https://<server>/panel/login` |
 
-![Admin dashboard](screenshots/admin-dashboard.png)
+![Admin dashboard](docs/screenshots/admin-dashboard.png)
 
 The panel manages the real hosting stack underneath:
 
@@ -374,7 +374,7 @@ Open:
 https://<your-server>:8443/login
 ```
 
-![Admin login](screenshots/admin-login.png)
+![Admin login](docs/screenshots/admin-login.png)
 
 Sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `/opt/cwhpanel/.env`.
 
@@ -405,7 +405,7 @@ Open:
 https://<your-server>/panel/login
 ```
 
-![Customer login](screenshots/customer-login.png)
+![Customer login](docs/screenshots/customer-login.png)
 
 Customers sign in with their contact e-mail and the password you set when
 creating their account.
@@ -419,7 +419,7 @@ a search box, and a notification bell.
 
 ### 7.1 Dashboard
 
-![Admin dashboard](screenshots/admin-dashboard.png)
+![Admin dashboard](docs/screenshots/admin-dashboard.png)
 
 Shows:
 
@@ -433,9 +433,9 @@ Shows:
 
 A **package** is a hosting plan: limits, features and defaults.
 
-![Packages](screenshots/admin-packages.png)
+![Packages](docs/screenshots/admin-packages.png)
 
-![Package editor](screenshots/admin-package-edit.png)
+![Package editor](docs/screenshots/admin-package-edit.png)
 
 A package defines, among others:
 
@@ -451,9 +451,9 @@ A package defines, among others:
 An **account** is a hosting customer: a Linux user, a home directory, a PHP
 pool, and one or more domains.
 
-![Accounts](screenshots/admin-accounts.png)
+![Accounts](docs/screenshots/admin-accounts.png)
 
-![Account detail](screenshots/admin-account.png)
+![Account detail](docs/screenshots/admin-account.png)
 
 The account page shows:
 
@@ -466,9 +466,9 @@ The account page shows:
 
 ### 7.4 Domains and Websites
 
-![Domains](screenshots/admin-domains.png)
+![Domains](docs/screenshots/admin-domains.png)
 
-![Websites](screenshots/admin-websites.png)
+![Websites](docs/screenshots/admin-websites.png)
 
 - **Domains** — the DNS/identity side: main domain, add-on, parked, subdomain.
 - **Websites** — the vhost side: document root, PHP version, SSL, WAF,
@@ -486,7 +486,7 @@ cPanel conventions:
 
 ### 7.5 DNS
 
-![DNS zones](screenshots/admin-dns.png)
+![DNS zones](docs/screenshots/admin-dns.png)
 
 If you configured **nameservers** (Admin → DNS → Nameservers), every new domain
 gets a full zone automatically: A, AAAA, `www`, NS, SOA, `mail`, MX, SPF,
@@ -498,7 +498,7 @@ DNSSEC.
 
 ### 7.6 Email
 
-![Email](screenshots/admin-email.png)
+![Email](docs/screenshots/admin-email.png)
 
 Admin → Email manages:
 
@@ -509,7 +509,7 @@ Admin → Email manages:
 
 ### 7.7 SSL
 
-![SSL](screenshots/admin-ssl.png)
+![SSL](docs/screenshots/admin-ssl.png)
 
 - Issue **Let's Encrypt** certificates for any domain (HTTP-01).
 - Certificates are **auto-issued when a domain is added** and **auto-renewed**
@@ -519,7 +519,7 @@ Admin → Email manages:
 
 ### 7.8 Security
 
-![Security overview](screenshots/admin-security.png)
+![Security overview](docs/screenshots/admin-security.png)
 
 - **Firewall** — open/close ports, block/unblock IPs, allow remote MySQL
 - **WAF (ModSecurity + OWASP CRS)** — per-site on/off and rule exclusions
@@ -529,9 +529,9 @@ Admin → Email manages:
 
 ### 7.9 Server
 
-![Server overview](screenshots/admin-server-overview.png)
+![Server overview](docs/screenshots/admin-server-overview.png)
 
-![Services](screenshots/admin-server-services.png)
+![Services](docs/screenshots/admin-server-services.png)
 
 - **Services** — start/stop/restart every hosting service
 - **Nginx** — config test, reload, vhost listing
@@ -542,14 +542,14 @@ Admin → Email manages:
 
 ### 7.10 Monitoring
 
-![Monitoring](screenshots/admin-monitoring.png)
+![Monitoring](docs/screenshots/admin-monitoring.png)
 
 Resource overview (CPU, memory, disk, network), network throughput and
 per-account bandwidth usage for the current month.
 
 ### 7.11 Backups
 
-![Backups](screenshots/admin-backups.png)
+![Backups](docs/screenshots/admin-backups.png)
 
 - **Per-account backups** — files, databases, mail, DNS
 - **Schedules** — daily/weekly with retention
@@ -636,42 +636,42 @@ owner needs. Customers only see their own account.
 
 ### 9.1 Dashboard
 
-![Customer dashboard](screenshots/customer-dashboard.png)
+![Customer dashboard](docs/screenshots/customer-dashboard.png)
 
 Shows the current user, primary domain, home directory, disk usage, mailbox
 count, and quick links to every section.
 
 ### 9.2 Websites
 
-![Customer websites](screenshots/customer-websites.png)
+![Customer websites](docs/screenshots/customer-websites.png)
 
 Each row is a website: document root, PHP version, SSL, maintenance mode, WAF,
 traffic. Customers can switch **PHP version** and adjust PHP settings per site.
 
 ### 9.3 Domains
 
-![Customer domains](screenshots/customer-domains.png)
+![Customer domains](docs/screenshots/customer-domains.png)
 
 Add **add-on domains**, **parked domains** and **subdomains** (subject to the
 package limits). DNS for each domain is editable here (if enabled).
 
 ### 9.4 Email
 
-![Customer email](screenshots/customer-email.png)
+![Customer email](docs/screenshots/customer-email.png)
 
 Mailboxes, forwarders, autoresponders, catch-all, mailing lists, Sieve filters
 — and **Webmail** (Roundcube SSO).
 
 ### 9.5 DNS
 
-![Customer DNS](screenshots/customer-dns.png)
+![Customer DNS](docs/screenshots/customer-dns.png)
 
 Edit records for the domains the customer owns. Nameservers are not editable by
 customers (they are server-wide).
 
 ### 9.6 Files
 
-![Customer file manager](screenshots/customer-files.png)
+![Customer file manager](docs/screenshots/customer-files.png)
 
 Browse, upload, edit, compress, extract, change permissions and create
 directories — all confined to the account home.
@@ -687,19 +687,19 @@ SSH keys. SSH is **jailed** by default (the customer sees only their own files).
 
 ### 9.9 SSL
 
-![Customer SSL](screenshots/customer-ssl.png)
+![Customer SSL](docs/screenshots/customer-ssl.png)
 
 Issue and renew certificates, force HTTPS, enable HSTS.
 
 ### 9.10 Backups
 
-![Customer backups](screenshots/customer-backups.png)
+![Customer backups](docs/screenshots/customer-backups.png)
 
 Create on-demand backups, download them, and restore from a previous one.
 
 ### 9.11 App Installer
 
-![Customer App Installer](screenshots/customer-appinstaller.png)
+![Customer App Installer](docs/screenshots/customer-appinstaller.png)
 
 One-click installs for 90+ applications (WordPress, Joomla, Drupal,
 Nextcloud, Matomo, …) into the website root or a subdirectory.
@@ -1030,7 +1030,7 @@ DMARC by default, ModSecurity + OWASP CRS, and least-privilege database access.
 ## 16. License and support
 
 CWH Control Panel is **proprietary software** (not open source). It is licensed,
-not sold, under the terms in [`LICENSE`](../LICENSE). This edition is licensed
+not sold, under the terms in [`LICENSE`](LICENSE). This edition is licensed
 free of charge for commercial hosting use under the same restrictions.
 
 - Licensor: **Nasserddine F.**, auto-entrepreneur (Morocco, ICE 001753903000019)
@@ -1041,7 +1041,7 @@ free of charge for commercial hosting use under the same restrictions.
 You may not redistribute, sublicense, resell, or offer the panel itself as a
 hosted/managed control-panel service without a separate written agreement.
 Bundled third-party components are listed in
-[`THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md).
+[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
 
 ---
 
