@@ -1,0 +1,4 @@
+# Agent binary exec type. Lives in the agent module's own fc (not cwhpanel.fc):
+# a filecon referencing a type from another module makes the two modules
+# circular at link time.
+/usr/local/sbin/cwhpanel-agent  gen_context(system_u:object_r:cwhpanel_agent_exec_t,s0)

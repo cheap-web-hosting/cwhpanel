@@ -1,0 +1,101 @@
+#!/bin/bash
+# Per-account application network namespace (L-14).
+#
+# Isolates each hosting account's apps on their own network namespace so app A
+# cannot reach app B's loopback services, while preserving outbound internet
+# (veth + MASQUERADE) and host reachability for the nginx reverse proxy.
+#
+# Usage (invoked by the agent; root only):
+#   cwhpanel-netns ensure  <account> <id>   create/converge netns + veth
+#   cwhpanel-netns destroy <account> <id>   tear down
+#   cwhpanel-netns status  <account>        print "up" or "down"
+#   cwhpanel-netns host-setup               host forward/NAT/firewall rules
+#
+# Address plan: 10.213.<id>>8>.<id&255>.1/30 (host veth) /.2/30 (ns).
+set -euo pipefail
+
+NET="10.213.0.0/16"
+NSTABLE="cwhpanel_appnet"
+
+usage() { echo "usage: cwhpanel-netns {ensure|destroy <account> <id>|status <account>|host-setup}" >&2; exit 2; }
+
+host_setup() {
+    # Forwarding (persisted) + NAT for the account ranges + inter-account drop.
+    # Each item is guarded individually so a pre-existing (even partially
+    # provisioned) table converges instead of skipping the rule setup entirely.
+    printf 'net.ipv4.ip_forward=1\n' > /etc/sysctl.d/99-cwhpanel-appnet.conf
+    sysctl -w net.ipv4.ip_forward=1 >/dev/null
+    nft add table ip "$NSTABLE" 2>/dev/null || true
+    if ! nft list chain ip "$NSTABLE" post >/dev/null 2>&1; then
+        nft "add chain ip $NSTABLE post { type nat hook postrouting priority srcnat; }"
+    fi
+    if ! nft -a list table ip "$NSTABLE" 2>/dev/null | grep -q 'masquerade'; then
+        nft "add rule ip $NSTABLE post ip saddr $NET masquerade"
+    fi
+    if ! nft list chain ip "$NSTABLE" forwardf >/dev/null 2>&1; then
+        nft "add chain ip $NSTABLE forwardf { type filter hook forward priority filter; }"
+    fi
+    # No account veth may reach another account veth (internet still OK).
+    if ! nft -a list table ip "$NSTABLE" 2>/dev/null | grep -q 'cwh\*h'; then
+        nft "add rule ip $NSTABLE forwardf iifname \"cwh*h\" oifname \"cwh*h\" drop"
+    fi
+}
+
+valid() {
+    [[ "$1" =~ ^[a-z][a-z0-9_-]{0,30}$ ]] || { echo "invalid account" >&2; exit 2; }
+    [[ "$2" =~ ^[0-9]+$ ]] && [ "$2" -ge 1 ] && [ "$2" -le 16383 ] || { echo "invalid id" >&2; exit 2; }
+}
+
+ensure() {
+    local acct="$1" id="$2"
+    local ns="cwh-$acct"
+    local hi=$(( (id >> 6) & 255 )) base=$(( (id & 63) << 2 ))
+    local hostip="10.213.$hi.$(( base + 1 ))" nsip="10.213.$hi.$(( base + 2 ))"
+    local hv="cwh${id}h" nv="cwh${id}n"
+
+    host_setup
+
+    if ! ip netns list | grep -q "^$ns\( \|$\)"; then
+        ip netns add "$ns"
+    fi
+    if ! ip link show "$hv" >/dev/null 2>&1; then
+        ip link add "$hv" type veth peer name "$nv"
+        ip link set "$nv" netns "$ns"
+        ip addr add "$hostip/30" dev "$hv"
+        ip link set "$hv" up
+        ip netns exec "$ns" ip addr add "$nsip/30" dev "$nv"
+        ip netns exec "$ns" ip link set "$nv" up
+        ip netns exec "$ns" ip link set lo up
+        ip netns exec "$ns" ip route add default via "$hostip"
+    fi
+
+    # Nameservers inside the ns (the host resolv.conf only resolves in the
+    # host namespace). ip-netns reads /etc/netns/<ns>/resolv.conf.
+    mkdir -p "/etc/netns/$ns"
+    if ! cp -f /etc/resolv.conf "/etc/netns/$ns/resolv.conf" 2>/dev/null; then
+        printf 'nameserver 8.8.8.8\nnameserver 1.1.1.1\n' > "/etc/netns/$ns/resolv.conf"
+    fi
+    echo "netns $ns up ($nsip)"
+}
+
+destroy() {
+    local acct="$1" id="$2"
+    local ns="cwh-$acct" hv="cwh${id}h"
+    ip netns del "$ns" 2>/dev/null || true
+    ip link del "$hv" 2>/dev/null || true
+    rm -rf "/etc/netns/$ns"
+    echo "netns $ns down"
+}
+
+status() {
+    local ns="cwh-$1"
+    if ip netns list | grep -q "^$ns\( \|$\)"; then echo up; else echo down; fi
+}
+
+case "${1:-}" in
+    host-setup) host_setup; echo "host app-netns rules ready" ;;
+    ensure)  [ $# -eq 3 ] || usage; valid "$2" "$3"; ensure "$2" "$3" ;;
+    destroy) [ $# -eq 3 ] || usage; valid "$2" "$3"; destroy "$2" "$3" ;;
+    status)  [ $# -eq 2 ] || usage; valid "$2" 1; status "$2" ;;
+    *) usage ;;
+esac

@@ -1,0 +1,10 @@
+# cwhpanel — MySQL statement-time governor, every minute.
+# KILL QUERYs statements running longer than the package's
+# mysql_max_statement_sec and records each kill in mysql_governor_events.
+# Replaces the old Watchdog check (the free edition ships no Watchdog module).
+# Routine ticks are silent; only errors reach the log, kills are visible on the
+# panel's database page.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+* * * * * root /usr/bin/php __PANEL_DIR__/scripts/mysql-governor-sweep.php >/dev/null 2>>/var/log/cwhpanel-mysql-governor.log

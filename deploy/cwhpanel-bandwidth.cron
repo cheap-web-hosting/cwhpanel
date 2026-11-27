@@ -1,0 +1,9 @@
+# cwhpanel — monthly bandwidth enforcement sweep, daily.
+# Totals each active account's traffic for the current month and applies the
+# package's bandwidth_mb: 80%/95% warning mail, suspension at 100%, and
+# automatic recovery under the cap. Replaces the old Watchdog check (the free
+# edition ships no Watchdog module).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+20 0 * * * root /usr/bin/php __PANEL_DIR__/scripts/bandwidth-sweep.php >> /var/log/cwhpanel-bandwidth.log 2>&1

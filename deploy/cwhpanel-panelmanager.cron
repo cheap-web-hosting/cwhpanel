@@ -1,0 +1,6 @@
+# cwhpanel — PanelManager heartbeat (hourly). Reports hostname/IP/version/
+# account count/license to the central dashboard and applies its policy
+# (ban status + update blocking). No-op when PANEL_MANAGER_URL is unset.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 * * * * root /usr/bin/nice -n 10 /usr/bin/php __PANEL_DIR__/scripts/panel-manager-report.php >> /var/log/cwhpanel-panelmanager.log 2>&1

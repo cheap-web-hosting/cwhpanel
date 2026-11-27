@@ -1,0 +1,1 @@
+{"id":"backups","name":"Backups","version":"1.0.0","admin":true,"customer":true,"requires":["core","accounts"],"permissions":["backups.view","backups.create","backups.restore","backups.delete"]}

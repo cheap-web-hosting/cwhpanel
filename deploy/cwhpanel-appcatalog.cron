@@ -1,0 +1,8 @@
+# cwhpanel — app-catalog freshness sweep, weekly.
+# Checks upstream releases and auto-updates versioned catalog rows
+# (github/codeberg blocks or {version}/{tag} URLs). Installed apps are
+# never touched.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+25 5 * * 0 root /usr/bin/php __PANEL_DIR__/scripts/refresh-app-catalog.php >> /var/log/cwhpanel-appcatalog.log 2>&1

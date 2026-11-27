@@ -1,0 +1,1 @@
+{"id":"cron","name":"Cron Jobs","version":"1.0.0","admin":true,"customer":true,"requires":["core","accounts"],"permissions":["cron.view","cron.manage"]}

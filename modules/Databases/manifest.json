@@ -1,0 +1,1 @@
+{"id":"databases","name":"Databases","version":"1.0.0","admin":true,"customer":true,"requires":["core","accounts"],"permissions":["databases.view","databases.create","databases.delete","databases.users.manage"]}

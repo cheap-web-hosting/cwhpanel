@@ -1,0 +1,5 @@
+# cwhpanel — scheduled system updates (mode=security drop-in written by the
+# agent; this is the deploy copy for parity — the agent owns the live file).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+45 4 * * * root /usr/bin/nice -n 10 /usr/bin/dnf -y --security upgrade >> /var/log/cwhpanel-updates.log 2>&1

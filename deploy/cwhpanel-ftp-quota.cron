@@ -1,0 +1,8 @@
+# cwhpanel — FTP quota sweep, daily.
+# Measures each active FTP home and suspends (login lock) rows over their
+# per-row quota_mb. Clearing is manual via unsuspend (the next sweep
+# re-suspends while still over quota).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+44 3 * * * root /usr/bin/php __PANEL_DIR__/scripts/ftp-quota-sweep.php >> /var/log/cwhpanel-ftp-quota.log 2>&1

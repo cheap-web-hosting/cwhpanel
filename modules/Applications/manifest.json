@@ -1,0 +1,1 @@
+{"id":"applications","name":"Applications","version":"1.0.0","admin":true,"customer":true,"requires":["core","accounts"],"permissions":["apps.view","apps.create","apps.delete","apps.manage"]}

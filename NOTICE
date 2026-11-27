@@ -1,0 +1,30 @@
+cwhpanel
+Copyright (c) 2026 Nasserddine F. (auto-entrepreneur, Morocco —
+ICE 001753903000019). All rights reserved.
+
+This software is PROPRIETARY and is licensed, not sold. It is NOT open source.
+Your rights are defined exclusively by the LICENSE file in this distribution;
+the source is provided to licensees under those terms and must not be
+redistributed, sublicensed, or offered as a hosted control-panel service
+without a separate written agreement.
+
+"cwhpanel" and the cwhpanel logo are trademarks of Nasserddine F.
+(auto-entrepreneur, Morocco — ICE 001753903000019). No trademark rights are
+granted by the LICENSE; do not use the marks in a way that
+suggests endorsement or affiliation without written permission.
+
+Third-party components bundled with or linked into this software remain under
+their own licenses and are identified in THIRD_PARTY_LICENSES.md. In particular:
+
+  - deploy/roundcube/plugins/cwhpanel_sso/  is GPL-3.0-or-later (Roundcube
+    plugin exception) and is a separate program; its source and a copy of the
+    GPL-3 (COPYING) are included in that directory.
+  - public/assets/js/qrcodegen.js           is MIT (Project Nayuki).
+  - the Rust agent statically links crates under MIT, Apache-2.0, Unlicense,
+    and Unicode-3.0 terms (see THIRD_PARTY_LICENSES.md).
+
+Operating-system packages installed by the deployment scripts (nginx, MariaDB,
+Postfix, Dovecot, PowerDNS, PHP, Roundcube, phpMyAdmin, ClamAV, and others) are
+not distributed with this software and remain governed by their own licenses.
+
+Licensing and commercial enquiries: sales@cheap-web-hosting.org

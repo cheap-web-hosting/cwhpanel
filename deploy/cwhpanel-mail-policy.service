@@ -1,0 +1,19 @@
+[Unit]
+Description=cwhpanel mail rate-limit policy service
+After=network.target mariadb.service
+Requires=mariadb.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=__PANEL_DIR__
+# DB credentials live in a 0640 root:root EnvironmentFile, never inline in
+# this world-readable unit (a hosting customer can read /etc/systemd/system).
+EnvironmentFile=/etc/cwhpanel/mail-policy.env
+ExecStart=/usr/bin/python3 __PANEL_DIR__/agent/mail-policy.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,4 @@
+# cwhpanel — hostname TLS renewal, weekly.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 6 * * 0 root /usr/bin/php __PANEL_DIR__/scripts/provision-hostname-tls.php --renew-only >> /var/log/cwhpanel-hostname-tls.log 2>&1

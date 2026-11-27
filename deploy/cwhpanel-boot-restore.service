@@ -1,0 +1,15 @@
+[Unit]
+Description=cwhpanel restore transient units after boot (nginx workers, apps)
+After=network.target mariadb.service cwhpanel-agent.service
+Wants=mariadb.service cwhpanel-agent.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=__PANEL_DIR__
+ExecStart=/usr/bin/php __PANEL_DIR__/scripts/boot-restore.php
+Environment=PROVISIONING_ENABLED=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1 @@
+{"id": "monitoring", "name": "Monitoring", "version": "1.0.0", "admin": true, "customer": true, "requires": ["core", "accounts"], "permissions": ["monitoring.view", "monitoring.manage"]}

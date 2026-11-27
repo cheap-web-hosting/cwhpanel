@@ -1,0 +1,12 @@
+{
+  "id": "core",
+  "name": "Core",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": true,
+  "requires": [],
+  "permissions": ["dashboard.view", "server.view"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

@@ -1,0 +1,1 @@
+{"id":"api","name":"API","version":"1.0.0","admin":true,"customer":true,"requires":["core"],"permissions":["api.keys.view","api.keys.manage","api.webhooks.view","api.webhooks.manage"]}

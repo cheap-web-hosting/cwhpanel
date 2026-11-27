@@ -1,0 +1,93 @@
+#!/usr/bin/python3
+"""cwhpanel sendmail wrapper (M-13).
+
+Local submission from a hosting account (PHP mail(), cron, jailed shell) is
+handed to sendmail with a caller-controlled `-f` envelope sender, which reaches
+the MTA via sendmail -> postdrop -> pickup and therefore bypasses every
+`smtpd_*` restriction (including reject_sender_login_mismatch). This wrapper
+runs before the real MTA binary and forces a non-root caller's envelope sender
+to an address the account actually owns.
+
+Ownership is read from /etc/cwhpanel/mail-senders/<user>, written by
+MailService::sync (mailbox addresses + forwarder sources; may be empty). If an
+account owns no addresses yet, the wrapper passes through unchanged (it cannot
+know a valid identity, and blocking would silently drop its mail).
+
+Root (uid 0) and system accounts (uid < 1000) are never modified, so the panel,
+cron output and system mail keep working.
+"""
+import os
+import pwd
+import sys
+
+REAL = "/usr/sbin/sendmail.postfix"
+SENDERS_DIR = "/etc/cwhpanel/mail-senders"
+
+
+def passthrough(args):
+    os.execv(REAL, [REAL] + list(args))
+
+
+def main():
+    args = list(sys.argv[1:])
+
+    try:
+        uid = os.geteuid()
+        if uid == 0:
+            return passthrough(args)
+        pw = pwd.getpwuid(uid)
+        if pw.pw_uid < 1000:
+            return passthrough(args)
+    except Exception:
+        return passthrough(args)
+
+    user = pw.pw_name
+    allowed = set()
+    try:
+        with open(os.path.join(SENDERS_DIR, user), "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip().lower()
+                if line and not line.startswith("#"):
+                    allowed.add(line)
+    except Exception:
+        allowed = set()
+
+    # No known identity -> cannot enforce; keep mail flowing.
+    if not allowed:
+        return passthrough(args)
+
+    # Extract any caller-supplied envelope sender.
+    sender = None
+    rest = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("-f", "-r", "--from"):
+            if i + 1 < len(args):
+                sender = args[i + 1]
+                i += 2
+                continue
+            i += 1
+            continue
+        if a.startswith("--from="):
+            sender = a.split("=", 1)[1]
+            i += 1
+            continue
+        if len(a) > 2 and (a.startswith("-f") or a.startswith("-r")):
+            sender = a[2:]
+            i += 1
+            continue
+        rest.append(a)
+        i += 1
+
+    # No -f, or an owned sender: pass through untouched.
+    if sender is None or sender.strip().lower() in allowed:
+        return passthrough(args)
+
+    # Spoof attempt: force the account's own primary address.
+    primary = sorted(allowed)[0]
+    return passthrough(["-f", primary] + rest)
+
+
+if __name__ == "__main__":
+    main()

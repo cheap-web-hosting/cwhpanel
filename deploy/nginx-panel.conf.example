@@ -1,0 +1,128 @@
+# Example Nginx server block for the control panel (production).
+# Copy to /etc/nginx/conf.d/panel.conf and adjust as needed.
+# Requires a PHP-FPM pool listening on unix:/run/php-fpm/panel.sock.
+
+# HSTS value by scheme: only https responses assert (browsers ignore HSTS
+# received over plain http anyway; an empty value sends nothing useful).
+# includeSubDomains covers webmail./mail. hostnames served from this vhost.
+map $scheme $cwh_hsts {
+    https   "max-age=31536000; includeSubDomains; preload";
+    default "";
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${PANEL_HOST};
+
+    # Never disclose the exact build: version scans use the Server banner
+    # as their first fingerprint.
+    server_tokens off;
+
+    root /path/to/cwhpanel/public;
+    index index.php;
+
+    # --- HTTP security headers ---
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    # HSTS is asserted only over https (see the $cwh_hsts map above); the
+    # cert + redirect come from scripts/provision-hostname-tls.php.
+    add_header Strict-Transport-Security $cwh_hsts always;
+
+    # webmail.<any-domain> -> panel Roundcube (default webmail front door)
+    if ($host ~ ^webmail\.(.+)$) {
+        return 301 https://${PANEL_HOST}/roundcube/;
+    }
+
+    # ACME HTTP-01 challenges (hostname cert + any panel-served domain).
+    # Must precede the dotfiles deny: "/.well-known/" would otherwise match
+    # the "/\." regex and answer 403, failing every validation.
+    location ^~ /.well-known/acme-challenge/ {
+        default_type text/plain;
+    }
+
+    # Block dotfiles
+    location ~ /\. {
+        deny all;
+    }
+
+    # Roundcube webmail ("advanced webmail") — served from its own install,
+    # isolated from the panel router. The ^~ prefix ensures this matches
+    # before the generic \.php$ regex location.
+    location = /roundcube/ {
+        # nginx's alias+try_files mishandles the bare directory URI (passes the
+        # directory to PHP-FPM => "Primary script unknown"); go straight to the
+        # front controller instead. KEEP the query string: Roundcube redirects
+        # logged-in users to "/roundcube/?_task=mail&_token=..." and dropping
+        # it yields an endless index.php <-> /roundcube/ redirect loop.
+        return 302 /roundcube/index.php$is_args$args;
+    }
+
+    location ^~ /roundcube/ {
+        alias /usr/share/roundcubemail/;
+        index index.php;
+        try_files $uri /roundcube/index.php?$query_string;
+
+        # Roundcube ships inline scripts/styles; relax CSP here only.
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'" always;
+
+        # Never serve code, config, data or history straight off disk
+        # (program/js + program/resources stay public: skins need them).
+        location ~ ^/roundcube/(config|temp|logs|installer|SQL|bin|vendor|tests)/ {
+            deny all;
+        }
+        location ~ ^/roundcube/program/(actions|include|lib|localization)/ {
+            deny all;
+        }
+
+        location ~ ^/roundcube/(.+\.php)$ {
+            include fastcgi_params;
+            # alias/ is NOT inherited by nested locations: $request_filename
+            # resolves against the panel docroot and every PHP hit 404s
+            # ("File not found."). Map the script path explicitly.
+            fastcgi_param SCRIPT_FILENAME /usr/share/roundcubemail/$1;
+            fastcgi_param DOCUMENT_ROOT /usr/share/roundcubemail;
+            fastcgi_pass unix:/run/php-fpm/panel.sock;
+        }
+    }
+
+    location = /phpmyadmin { return 301 /phpmyadmin/; }
+    location = /phpmyadmin/ { return 302 /phpmyadmin/index.php$is_args$args; }
+    location ^~ /phpmyadmin/ {
+        alias /usr/share/phpMyAdmin/;
+        index index.php;
+        try_files $uri /phpmyadmin/index.php?$query_string;
+        location ~ ^/phpmyadmin/(.+\.php)$ {
+            include fastcgi_params;
+            # Same alias-inheritance trap as Roundcube above.
+            fastcgi_param SCRIPT_FILENAME /usr/share/phpMyAdmin/$1;
+            fastcgi_param DOCUMENT_ROOT /usr/share/phpMyAdmin;
+            fastcgi_pass unix:/run/php-fpm/panel.sock;
+        }
+    }
+
+    # Front controller
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_pass unix:/run/php-fpm/panel.sock;
+    }
+
+    # Deny direct access to sensitive paths
+    location ~ ^/(app|config|database|modules|resources|routes|scripts|tests|docs|storage) {
+        deny all;
+    }
+
+    location ~* \.(?:env|log|sql|md|json)$ {
+        deny all;
+    }
+}

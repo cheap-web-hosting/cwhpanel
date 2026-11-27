@@ -1,0 +1,1 @@
+{"id":"files","name":"Files","version":"1.0.0","admin":true,"customer":true,"requires":["core","accounts"],"permissions":["files.view","files.manage"]}

@@ -1,0 +1,5 @@
+# cwhpanel managed — panel self-update check (daily 04:17; refreshes the
+# update feed cache and notifies admins when a new release appears).
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 4 * * * root /usr/bin/php /opt/cwhpanel/scripts/panel-update-check.php >> /var/log/cwhpanel-panelupdate.log 2>&1

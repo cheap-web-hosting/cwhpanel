@@ -1,0 +1,12 @@
+{
+  "id": "admin",
+  "name": "Admin",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": false,
+  "requires": ["core", "authentication", "authorization"],
+  "permissions": ["modules.view", "modules.manage"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

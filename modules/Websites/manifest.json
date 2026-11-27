@@ -1,0 +1,12 @@
+{
+  "id": "websites",
+  "name": "Websites",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": true,
+  "requires": ["core", "accounts", "domains"],
+  "permissions": ["websites.view", "websites.create", "websites.edit", "websites.delete"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

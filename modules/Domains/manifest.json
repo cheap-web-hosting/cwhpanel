@@ -1,0 +1,12 @@
+{
+  "id": "domains",
+  "name": "Domains",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": true,
+  "requires": ["core", "accounts"],
+  "permissions": ["domains.view", "domains.create", "domains.edit", "domains.delete"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

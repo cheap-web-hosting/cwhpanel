@@ -1,0 +1,7 @@
+# cwhpanel — daily SSL certificate auto-renewal.
+# Runs the ACME renewal sweep for certificates with auto_renew enabled and
+# expiring within the threshold (30 days by default).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+01 2 * * * root /usr/bin/php __PANEL_DIR__/scripts/renew-certificates.php >> /var/log/cwhpanel-renew.log 2>&1

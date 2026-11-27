@@ -1,0 +1,12 @@
+{
+  "id": "customer",
+  "name": "Customer",
+  "version": "1.0.0",
+  "admin": false,
+  "customer": true,
+  "requires": ["core", "authentication"],
+  "permissions": ["account.profile.view", "account.profile.edit"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

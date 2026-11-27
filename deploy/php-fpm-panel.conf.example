@@ -1,0 +1,38 @@
+; Example PHP-FPM pool for the control panel (production).
+; Copy to /etc/php-fpm.d/panel.conf and adjust the user/paths.
+;
+; Security: the panel runs as its OWN dedicated system user (cwhpanel-panel),
+; NOT as the nginx web user. The front-door nginx worker must only ever read
+; the panel's public/ tree; panel secrets (.env, ACME key) belong to the panel
+; user's group so a web-layer bug can never read them.
+
+[panel]
+user = cwhpanel-panel
+group = cwhpanel-panel
+
+listen = /run/php-fpm/panel.sock
+listen.owner = nginx
+listen.group = nginx
+listen.mode = 0660
+
+pm = dynamic
+pm.max_children = 20
+pm.start_servers = 4
+pm.min_spare_servers = 2
+pm.max_spare_servers = 8
+
+; Keep the panel separated from customer pools.
+catch_workers_output = yes
+php_admin_value[error_log] = /var/log/php-fpm/panel.log
+php_admin_flag[log_errors] = on
+; Do not advertise the PHP version in the X-Powered-By header.
+php_admin_value[expose_php] = Off
+
+; PHP-level confinement: the panel only needs its own tree, PHP/openssl
+; system paths, sessions/temp, and the agent socket. Anything else is out of
+; reach of a panel-PHP flaw. (exec/shell_exec stay available — admin hostname
+; and nginx self-checks use them; privileged mutation goes through the agent.)
+; /proc is read-only pseudo-filesystem telemetry (loadavg, meminfo, uptime,
+; cpuinfo) rendered by the admin dashboard / SystemInfo — denying it silently
+; zeroed every System card. It grants no write access and no real file data.
+php_admin_value[open_basedir] = /opt/cwhpanel:/usr/share/php:/var/lib/php:/usr/share/roundcubemail:/usr/share/phpMyAdmin:/var/backups:/tmp:/run:/etc/pki/tls:/var/tmp:/etc:/usr/lib:/usr/bin:/usr/sbin:/sbin:/proc

@@ -1,0 +1,8 @@
+# cwhpanel — database storage quota sweep, every 15 minutes.
+# Enforces packages.database_quota_mb by revoking write grants on the
+# account's databases while over quota (reads keep working, nothing is
+# deleted) and restoring them once usage drops back under the cap.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+*/15 * * * * root /usr/bin/php __PANEL_DIR__/scripts/db-quota-sweep.php >> /var/log/cwhpanel-db-quota.log 2>&1

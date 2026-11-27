@@ -1,0 +1,6 @@
+# cwhpanel — operational log retention, daily.
+# Prunes provisioning_logs (>90d) and audit_logs (>365d); see
+# scripts/prune-operational-logs.php.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+15 5 * * * root /usr/bin/php __PANEL_DIR__/scripts/prune-operational-logs.php >> /var/log/cwhpanel-logprune.log 2>&1

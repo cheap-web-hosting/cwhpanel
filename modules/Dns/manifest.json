@@ -1,0 +1,12 @@
+{
+  "id": "dns",
+  "name": "DNS",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": true,
+  "requires": ["core", "accounts"],
+  "permissions": ["dns.zones.view", "dns.zones.create", "dns.zones.delete", "dns.records.create", "dns.records.edit", "dns.records.delete"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

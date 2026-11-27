@@ -1,0 +1,25 @@
+[Unit]
+Description=cwhpanel background job + webhook worker
+After=network.target mariadb.service cwhpanel-agent.service
+Wants=mariadb.service cwhpanel-agent.service
+
+[Service]
+Type=simple
+# The worker triggers provisioning (backups, provisioning jobs) and must be able
+# to talk to the agent socket, so it runs as root like the agent.
+User=root
+Group=root
+WorkingDirectory=__PANEL_DIR__
+ExecStart=/usr/bin/php __PANEL_DIR__/scripts/worker.php
+Restart=on-failure
+RestartSec=5
+# The worker performs real work (backups, provisioning); it is NOT a dry-run.
+Environment=PROVISIONING_ENABLED=true
+
+# Hardening — no network listening, only outgoing webhook POSTs and the
+# Unix agent socket. Kept deliberately light to avoid breaking child tooling.
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

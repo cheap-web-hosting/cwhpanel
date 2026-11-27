@@ -1,0 +1,1 @@
+{"id":"appinstaller","name":"Application Installer","version":"1.0.0","admin":true,"customer":true,"requires":["core","accounts","domains","databases","jobs"],"permissions":["appinstaller.view","appinstaller.install","appinstaller.manage","appinstaller.catalog","appinstaller.logs"]}

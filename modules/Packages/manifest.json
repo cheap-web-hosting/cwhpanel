@@ -1,0 +1,12 @@
+{
+  "id": "packages",
+  "name": "Packages",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": false,
+  "requires": ["core"],
+  "permissions": ["packages.view", "packages.create", "packages.edit", "packages.delete"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

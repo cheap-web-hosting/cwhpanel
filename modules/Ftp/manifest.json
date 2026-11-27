@@ -1,0 +1,1 @@
+{"id":"ftp","name":"FTP","version":"1.0.0","admin":true,"customer":true,"requires":["core","accounts"],"permissions":["ftp.view","ftp.accounts.manage"]}

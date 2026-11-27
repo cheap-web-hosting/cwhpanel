@@ -1,0 +1,8 @@
+# cwhpanel — scheduled backup dispatcher, daily.
+# Enqueues one `backup.scheduled` worker job per due schedule (enabled,
+# next_run_at passed). The worker (root) does create → upload → prune.
+# Idempotent: skips schedules with an already pending/running job.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+20 2 * * * root /usr/bin/nice -n 10 /usr/bin/ionice -c 3 /usr/bin/php __PANEL_DIR__/scripts/backup-scheduler.php >> /var/log/cwhpanel-backup.log 2>&1

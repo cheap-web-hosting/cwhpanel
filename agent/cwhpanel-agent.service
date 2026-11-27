@@ -1,0 +1,40 @@
+[Unit]
+Description=cwhpanel privileged provisioning agent
+Documentation=https://example.invalid/cwhpanel
+After=network.target local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/cwhpanel-agent
+Restart=on-failure
+RestartSec=2
+# The agent must run as root to perform user/group/cgroup/fs provisioning.
+User=root
+Group=root
+# Hardening — the agent is a root daemon by necessity (it runs useradd/groupadd/
+# setquota/systemctl/nginx/php-fpm). Its security boundary is peer-credential
+# auth plus the operation allowlist. It additionally runs confined by SELinux
+# (cwhpanel_agent_t, see agent/selinux/cwhpanel_agent.te) when the policy module
+# is loaded and /usr/local/sbin/cwhpanel-agent is labeled cwhpanel_agent_exec_t.
+# We apply only unit hardening that does not break the child binaries it must
+# spawn (nginx -t, php-fpm -t, etc.).
+RuntimeDirectory=cwhpanel
+RuntimeDirectoryMode=0755
+# NOTE: no PrivateTmp / ProtectKernelTunables / ProtectKernelModules here — every
+# one of those implies a private mount namespace, and the agent performs jail
+# bind mounts that MUST be visible in the host mount namespace (sshd, not the
+# agent, consumes them). Private namespaces would also lose the mounts on restart.
+# NOTE: no NoNewPrivileges either — it blocks the SELinux-bounded transition to
+# rpm_script_t, so dnf/rpm scriptlets fail with "Operation not permitted" and
+# packages half-install / refuse to erase. For an allowlisted root daemon the
+# marginal sandboxing is not worth silently broken package management.
+
+# Peer auth allowlist: the panel's PHP-FPM process runs as this uid/gid.
+# Override in /etc/systemd/system/cwhpanel-agent.service.d/override.conf.
+Environment=CWH_AGENT_SOCKET=/run/cwhpanel/agent.sock
+Environment=CWH_AGENT_ALLOWED_UIDS=0
+Environment=CWH_AGENT_ALLOWED_GIDS=0
+Environment=CWH_AGENT_TIMEOUT=30
+
+[Install]
+WantedBy=multi-user.target

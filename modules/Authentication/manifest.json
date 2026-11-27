@@ -1,0 +1,12 @@
+{
+  "id": "authentication",
+  "name": "Authentication",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": true,
+  "requires": ["core"],
+  "permissions": [],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

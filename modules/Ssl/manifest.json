@@ -1,0 +1,12 @@
+{
+  "id": "ssl",
+  "name": "SSL",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": true,
+  "requires": ["core", "accounts", "domains"],
+  "permissions": ["ssl.view", "ssl.issue", "ssl.renew", "ssl.delete"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

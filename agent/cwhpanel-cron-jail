@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# cwhpanel-cron-jail — root cron.d dispatcher for JAILED scheduled cron jobs.
+#
+# The panel writes jailed jobs to /etc/cron.d/cwhpanel-<account> as:
+#   <schedule> root /usr/local/bin/cwhpanel-cron-jail <account> <job-id> <base64-command>
+# The command is base64-encoded so crond's own shell re-parsing of the
+# crontab line can never mangle quoting/metacharacters. We validate every
+# argument precisely, decode the command, then re-exec the agent's
+# `jail-run --once` subcommand, which:
+#   1. builds the jail (unshare -> binds -> chroot),
+#   2. transitions to httpd_t:s0:cN,
+#   3. drops to the account, and
+#   4. runs the standard cwhpanel-cron-run wrapper (same output capture,
+#      state JSON in ~/.cwhpanel-cron/, always-exit-0 semantics).
+#
+# The account and job id are validated here (never trusted blindly).
+set -u
+
+ACCT="${1:-}"
+JOB="${2:-}"
+B64="${3:-}"
+[ -n "$ACCT" ] && [ -n "$JOB" ] && [ -n "$B64" ] || { echo "cwhpanel-cron-jail: usage: <account> <job-id> <base64-command>" >&2; exit 126; }
+
+# Validate the account name (mirror the agent's charset + reserved list).
+case "$ACCT" in
+  *[!a-z0-9_-]*|'' ) echo "cwhpanel-cron-jail: invalid account '$ACCT'" >&2; exit 126 ;;
+esac
+case "$ACCT" in
+  root|daemon|bin|sys|nobody|adm|mysql|mariadb|postfix|dovecot|nginx|apache|httpd|systemd|sshd|chrony|dbus|polkitd|opendkim|sa-milt|clamscan|clamupdate|pdns|flatpak|geoclue|pipewire|setroubleshoot|sssd|systemd-coredump|ftpguest|dovenull )
+    echo "cwhpanel-cron-jail: reserved account '$ACCT'" >&2; exit 126 ;;
+esac
+case "$JOB" in
+  *[!0-9]*|'' ) echo "cwhpanel-cron-jail: invalid job id '$JOB'" >&2; exit 126 ;;
+esac
+
+# Decode the command.
+COMMAND="$(printf '%s' "$B64" | base64 -d 2>/dev/null || true)"
+if [ -z "$COMMAND" ] || [ "${#COMMAND}" -gt 4096 ]; then
+  echo "cwhpanel-cron-jail: invalid encoded command" >&2
+  exit 126
+fi
+
+exec /usr/local/sbin/cwhpanel-agent jail-run --once --account "$ACCT" -- \
+  /usr/bin/env -i \
+    "HOME=/home/$ACCT" \
+    "USER=$ACCT" \
+    "LOGNAME=$ACCT" \
+    "PATH=/usr/local/bin:/usr/bin:/bin" \
+    /usr/local/bin/cwhpanel-cron-run "$JOB" "$COMMAND"

@@ -1,0 +1,1 @@
+{"id":"email","name":"Email","version":"1.0.0","admin":true,"customer":true,"requires":["core","accounts","domains"],"permissions":["email.view","email.domains.manage","email.mailboxes.manage","email.forwarders.manage"]}

@@ -1,0 +1,4 @@
+# Weekly MCS s0-fallback relabel sweep (latest scan order: one run per week
+# at 03:50 on Monday). See scripts/s0-relabel-sweep.php.
+# Writes only account-home levels; does not touch types.
+50 3 * * 1 root /usr/bin/php /opt/cwhpanel/scripts/s0-relabel-sweep.php >> /var/log/cwhpanel-s0-sweep.log 2>&1

@@ -1,0 +1,221 @@
+cwhpanel — PROPRIETARY SOFTWARE LICENSE AGREEMENT
+
+Copyright (c) 2026 Nasserddine F. (auto-entrepreneur, Morocco —
+ICE 001753903000019). All rights reserved.
+
+This is a legal agreement ("Agreement") between Nasserddine F., an
+auto-entrepreneur registered in Morocco under ICE 001753903000019 and
+operating https://cheap-web-hosting.org ("Licensor") and the person or entity
+installing or using the software ("Licensee").
+By installing, copying, or using the software, Licensee agrees to be bound by
+this Agreement. If Licensee does not agree, Licensee must not install or use
+the software.
+
+1. DEFINITIONS
+
+1.1 "Software" means the cwhpanel hosting control panel, including its source
+    code, object code, configuration files, scripts, documentation, and any
+    updates or upgrades provided by Licensor, but excluding Third-Party
+    Components.
+
+1.2 "Free Edition" means the edition of the Software designated by Licensor as
+    the free edition, as distributed without a fee.
+
+1.3 "Paid Edition" means any edition of the Software licensed for a fee under
+    an order, quotation, or other written agreement with Licensor.
+
+1.4 "Third-Party Components" means software, libraries, or other components
+    included with or used by the Software that are licensed under their own
+    terms, as identified in the THIRD_PARTY_LICENSES file.
+
+1.5 "Customer" means a person or entity to which Licensee provides hosting or
+    related services.
+
+2. LICENSE GRANT
+
+2.1 Subject to Licensee's compliance with this Agreement, Licensor grants
+    Licensee a non-exclusive, non-transferable, non-sublicensable, revocable,
+    worldwide license to:
+
+    (a) install and run the Software on servers owned or controlled by
+        Licensee;
+    (b) use the Software in production to operate websites, mail, DNS,
+        databases, applications, and related hosting services for Licensee
+        and for Licensee's Customers, including in exchange for payment;
+    (c) make a reasonable number of backup copies for disaster recovery; and
+    (d) modify configuration files and, for internal use only, modify the
+        source code, provided that Licensee does not distribute, publish, or
+        make available the modified source code or any derivative work.
+
+2.2 Free Edition. The Free Edition is licensed free of charge, including for
+    commercial use as described in Section 2.1, subject to all restrictions in
+    this Agreement. The Free Edition is provided without support, maintenance,
+    or warranty of any kind, unless separately agreed in writing.
+
+2.3 Paid Edition. The Paid Edition requires payment of the applicable fees and
+    is licensed for the term, scope, and any usage limits stated in the
+    applicable order. Support, maintenance, and service levels are provided
+    only if and as set out in a separate written agreement.
+
+2.4 No rights are granted except as expressly stated in this Agreement.
+
+3. RESTRICTIONS
+
+Licensee shall not, and shall not permit any third party to:
+
+3.1 redistribute, publish, sublicense, sell, rent, lease, lend, or otherwise
+    make the Software (or any derivative work) available to any third party,
+    except as expressly permitted in Section 2;
+
+3.2 offer the Software, or a substantively similar derivative work, as a
+    hosted, managed, or resold control-panel service to third parties;
+
+3.3 use the Software to develop or market a competing hosting control panel or
+    a product that substitutes for the Software;
+
+3.4 remove, obscure, or alter any copyright, trademark, license, or other
+    proprietary notice in or on the Software;
+
+3.5 reverse engineer, decompile, disassemble, or otherwise attempt to derive
+    the source code of any portion of the Software delivered in object-code
+    form, except to the extent such restriction is prohibited by applicable
+    law;
+
+3.6 circumvent, disable, or interfere with any license-enforcement, usage-limit,
+    or security mechanism of the Software; or
+
+3.7 use the Software in violation of applicable law, or to provide services
+    that violate applicable law.
+
+4. OWNERSHIP AND INTELLECTUAL PROPERTY
+
+4.1 Licensor retains all right, title, and interest in and to the Software,
+    including all intellectual-property rights. The Software is licensed, not
+    sold. No title or ownership is transferred to Licensee.
+
+4.2 If Licensee provides suggestions, ideas, or feedback regarding the
+    Software, Licensor may use them without restriction or compensation.
+
+4.3 "cwhpanel" and associated logos are trademarks of Licensor. This Agreement
+    grants no trademark rights. Licensee may refer to the Software by name to
+    describe the services it provides, but may not use Licensor's marks in a
+    way that suggests endorsement or affiliation without written permission.
+
+5. THIRD-PARTY COMPONENTS
+
+5.1 Third-Party Components are licensed under their own terms, which prevail
+    over this Agreement with respect to those components. The THIRD_PARTY_LICENSES
+    file identifies them and reproduces the applicable notices where required.
+
+5.2 In particular, the Roundcube single-sign-on plugin included in
+    deploy/roundcube/plugins/cwhpanel_sso/ is licensed under GPL-3.0-or-later
+    (with the Roundcube plugin exception) and is a separate program; it is not
+    covered by the proprietary grant in Section 2. Its source is included in
+    the Software distribution.
+
+5.3 Operating-system packages installed by the Software's deployment scripts
+    (for example nginx, MariaDB, Postfix, Dovecot, PowerDNS, PHP, Roundcube,
+    phpMyAdmin, ClamAV) are not distributed by Licensor and remain governed by
+    their own licenses.
+
+6. UPDATES
+
+Licensor may provide updates at its discretion. Unless an update is accompanied
+by different terms, it is licensed under this Agreement. Licensor is not
+obligated to provide any update, including security fixes, for the Free
+Edition or for a Paid Edition after its support term.
+
+7. FEES, TAXES, AND RECORDS
+
+7.1 Fees for the Paid Edition are stated in the applicable order and are
+    exclusive of taxes, which Licensee is responsible for, excluding taxes on
+    Licensor's income.
+
+7.2 Licensee shall maintain reasonable records sufficient to demonstrate
+    compliance with any usage limits in the applicable order and shall provide
+    them to Licensor on reasonable written request. Licensor may, no more than
+    once per twelve months and on reasonable notice, verify compliance during
+    normal business hours in a manner that does not unreasonably interfere with
+    Licensee's operations.
+
+8. TERM AND TERMINATION
+
+8.1 This Agreement is effective until terminated.
+
+8.2 Licensor may terminate this Agreement immediately on written notice if
+    Licensee materially breaches it and fails to cure the breach within thirty
+    (30) days of notice (or immediately for a breach of Section 3).
+
+8.3 On termination, Licensee must stop using the Software, remove it from its
+    systems, and destroy or return all copies, except that Licensee may retain
+    one archival copy solely to verify compliance. Sections 3, 4, 7.2, 9, 10,
+    11, and 12 survive termination.
+
+9. WARRANTY DISCLAIMER
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR
+A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, AND UNINTERRUPTED OR ERROR-FREE
+OPERATION. LICENSOR DOES NOT WARRANT THAT THE SOFTWARE WILL MEET LICENSEE'S
+REQUIREMENTS OR THAT DEFECTS WILL BE CORRECTED.
+
+10. LIMITATION OF LIABILITY
+
+10.1 TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR SHALL NOT BE LIABLE FOR
+     ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR
+     FOR LOSS OF PROFITS, REVENUE, DATA, OR BUSINESS, ARISING OUT OF OR RELATED
+     TO THIS AGREEMENT, EVEN IF ADVISED OF THE POSSIBILITY.
+
+10.2 LICENSOR'S TOTAL AGGREGATE LIABILITY UNDER THIS AGREEMENT SHALL NOT EXCEED
+     THE FEES PAID BY LICENSEE FOR THE SOFTWARE IN THE TWELVE (12) MONTHS
+     PRECEDING THE EVENT GIVING RISE TO THE CLAIM, OR, FOR THE FREE EDITION,
+     ZERO.
+
+10.3 Nothing in this Agreement limits liability that cannot be limited by
+     applicable law.
+
+11. INDEMNITY
+
+Licensee shall defend and indemnify Licensor against third-party claims arising
+from Licensee's use of the Software in violation of this Agreement or applicable
+law, or from the services Licensee provides to its Customers.
+
+12. COMPLIANCE AND EXPORT
+
+Licensee shall comply with applicable laws, including export-control and
+sanctions laws, and shall not use or export the Software in violation of them.
+
+13. GOVERNING LAW AND VENUE
+
+This Agreement is governed by the laws of the Kingdom of Morocco, excluding
+its conflict-of-laws rules. The courts of the Kingdom of Morocco have exclusive
+jurisdiction over disputes arising out of or relating to this Agreement,
+subject to any mandatory consumer-protection rules.
+
+14. GENERAL
+
+14.1 This Agreement is the entire agreement between the parties regarding the
+     Software and supersedes prior discussions on that subject. It may be
+     amended only in writing signed by both parties.
+
+14.2 Licensee may not assign this Agreement without Licensor's prior written
+     consent; Licensor may assign it in connection with a merger, acquisition,
+     or sale of substantially all relevant assets.
+
+14.3 If a provision is held invalid or unenforceable, it is modified to the
+     minimum extent necessary, and the remaining provisions remain in effect.
+
+14.4 A failure to enforce a provision is not a waiver. Notices must be in
+     writing and are effective on receipt.
+
+14.5 This Agreement does not create a partnership, joint venture, or employment
+     relationship.
+
+15. CONTACT
+
+Licensing questions and commercial agreements: sales@cheap-web-hosting.org
+
+----------------------------------------------------------------------------
+This document is a commercial license, not an open-source license. The Software
+is not open source. No rights are granted under any open-source license except
+for the Third-Party Components identified in THIRD_PARTY_LICENSES.

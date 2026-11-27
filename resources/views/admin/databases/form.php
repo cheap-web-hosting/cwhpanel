@@ -1,0 +1,9 @@
+<?php $accounts = $accounts ?? []; $old = $old ?? []; ?>
+<div class="panel"><div class="panel-header"><h2 class="panel-title">Add database</h2></div>
+<form method="post" action="<?= e(url('admin/databases')) ?>" class="form-stack" style="padding:16px"><?= csrf_field() ?>
+<div class="field"><label class="field-label" for="name">Database suffix <span class="text-muted">*</span></label><input class="input" type="text" id="name" name="name" value="<?= e($old['name']??'') ?>" placeholder="e.g. wordpress" required><p class="field-help">Full name will be <code>account_username_suffix</code></p></div>
+<div class="field"><label class="field-label" for="account_id">Account <span class="text-muted">*</span></label><select class="input" id="account_id" name="account_id" required><option value="">Select…</option><?php foreach ($accounts as $a): ?><option value="<?= e($a['id']) ?>"><?= e($a['username']) ?></option><?php endforeach; ?></select></div>
+<div class="field"><label class="field-label" for="username">DB username suffix</label><input class="input" type="text" id="username" name="username" value="user" required></div>
+<div class="field"><label class="field-label" for="password">DB password <span class="text-muted">*</span></label><input class="input" type="password" autocomplete="new-password" id="password" name="password" required minlength="10"><p class="field-help">Minimum 10 characters. Shown once — copy it into the app config.</p></div>
+<div class="form-actions"><button type="submit" class="btn btn-primary">Create</button><a href="<?= e(url('admin/databases')) ?>" class="btn btn-ghost">Cancel</a></div>
+</form></div>

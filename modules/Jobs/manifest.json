@@ -1,0 +1,1 @@
+{"id":"jobs","name":"Jobs","version":"1.0.0","admin":true,"customer":false,"requires":["core"],"permissions":["jobs.view","jobs.manage"]}

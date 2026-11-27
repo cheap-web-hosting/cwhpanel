@@ -1,0 +1,12 @@
+{
+  "id": "authorization",
+  "name": "Authorization",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": false,
+  "requires": ["core", "authentication"],
+  "permissions": ["access.roles.view", "access.roles.edit", "access.permissions.view"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

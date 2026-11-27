@@ -1,0 +1,1 @@
+{"id":"security","name":"Security","version":"1.0.0","admin":true,"customer":true,"requires":["core"],"permissions":["security.view","security.manage"]}

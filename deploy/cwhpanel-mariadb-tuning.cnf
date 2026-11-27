@@ -1,0 +1,52 @@
+# cwhpanel — MariaDB performance tuning (installed by turn-up.sh to
+# /etc/my.cnf.d/99-cwhpanel-tuning.cnf).
+#
+# Sized for the reference box (4 vCPU, ~9.7 GB RAM, QEMU/HDD-backed disk).
+# Values are conservative-by-design for a shared hosting box where PHP-FPM
+# pools + nginx workers also consume memory — raise innodb_buffer_pool_size
+# toward 50-60% of RAM if the box is dedicated to the database.
+#
+# [mariadb] section: merges into the server defaults under this file.
+
+[mariadb]
+
+# InnoDB memory: the single biggest lever (default is a woeful 128M).
+innodb_buffer_pool_size = 3072M
+innodb_buffer_pool_instances = 4
+innodb_log_buffer_size = 32M
+
+# Redo log: 512M absorbs write bursts (panel + mail + PowerDNS activity).
+innodb_log_file_size = 512M
+
+# Web hosting workload: group-commit instead of fsync-per-commit.
+# Tradeoff: up to ~1s of committed transactions may be lost on power loss.
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
+
+# HDD-backed VM: keep I/O capacity modest so bursts don't starve the disk.
+innodb_io_capacity = 400
+innodb_io_capacity_max = 2000
+
+# Connections: panel FPM pools, phpMyAdmin, Roundcube, PowerDNS gmysql, backups.
+max_connections = 400
+thread_cache_size = 96
+
+# Table cache: accounts * tables grows quickly (panel + per-account DBs).
+table_open_cache = 4096
+table_definition_cache = 2048
+open_files_limit = 65535
+
+# Per-query temp/join/sort buffers (modest per-thread allocations).
+tmp_table_size = 64M
+max_heap_table_size = 64M
+join_buffer_size = 1M
+sort_buffer_size = 2M
+max_allowed_packet = 64M
+
+# MyISAM remnants + system tables.
+key_buffer_size = 64M
+
+# Slow-query log for future tuning (2s+ queries; low overhead).
+slow_query_log = 1
+long_query_time = 2
+slow_query_log_file = /var/log/mariadb/slow.log

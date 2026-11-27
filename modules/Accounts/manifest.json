@@ -1,0 +1,12 @@
+{
+  "id": "accounts",
+  "name": "Accounts",
+  "version": "1.0.0",
+  "admin": true,
+  "customer": false,
+  "requires": ["core", "packages"],
+  "permissions": ["accounts.view", "accounts.create", "accounts.edit", "accounts.suspend", "accounts.terminate"],
+  "routes": [],
+  "menu": [],
+  "migrations": []
+}

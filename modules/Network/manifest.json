@@ -1,0 +1,1 @@
+{"id":"network","name":"Network","version":"1.0.0","admin":true,"customer":false,"requires":["core","accounts"],"permissions":["network.view","network.manage"]}

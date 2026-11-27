@@ -1,0 +1,1 @@
+{"id":"webmail","name":"Webmail","version":"1.0.0","admin":false,"customer":true,"requires":["core","accounts","email"],"permissions":["webmail.view"]}
