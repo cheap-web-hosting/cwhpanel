@@ -131,6 +131,28 @@ dnf -y --nobest install \
     jq curl openssl unzip firewalld nftables whois quota >/dev/null
 step "packages installed"
 
+# Firewall: dnf installs firewalld but never starts or enables it, and every
+# firewall-dependent step below (port opening, per-account SMTP egress,
+# fail2ban rich-rule bans) is gated on the daemon being up. Left stopped, those
+# steps silently no-op: the box runs with NO firewall at all and, the moment
+# someone starts firewalld on its defaults, the panel/mail become unreachable.
+# Bring it up here, once, and say so loudly if it will not run.
+if command -v firewall-cmd >/dev/null 2>&1; then
+    systemctl enable firewalld >/dev/null 2>&1 || true
+    if ! firewall-cmd --state >/dev/null 2>&1; then
+        systemctl start firewalld >/dev/null 2>&1 || true
+        for _i in 1 2 3 4 5; do
+            firewall-cmd --state >/dev/null 2>&1 && break
+            sleep 1
+        done
+    fi
+    if firewall-cmd --state >/dev/null 2>&1; then
+        step "firewalld running"
+    else
+        warn "firewalld is NOT running: firewall rules (http/https, mail, dns, ftp, per-account SMTP egress, fail2ban bans) will not apply — run: systemctl enable --now firewalld"
+    fi
+fi
+
 # Multi-PHP: Remi SCL versions 74/80/81/82/83 (all enabled for boot; the panel
 # can install/uninstall more from Server → PHP Versions later). Best-effort:
 # a slow/mirror-less network must not fail the whole turn-up.
@@ -1101,7 +1123,13 @@ if systemctl is-active firewalld >/dev/null 2>&1; then
     firewall-cmd --permanent         --add-service=http --add-service=https         --add-service=smtp --add-service=smtps --add-service=submission         --add-service=imaps --add-service=pop3s --add-service=dns --add-service=ftp         >/dev/null 2>&1 || true
     firewall-cmd --permanent --add-port=30000-30100/tcp >/dev/null 2>&1 || true
     firewall-cmd --reload >/dev/null 2>&1 || true
-    step "firewall opened for http/https + mail/dns/ftp"
+    if firewall-cmd --query-service=https >/dev/null 2>&1; then
+        step "firewall opened for http/https + mail/dns/ftp"
+    else
+        warn "firewall reload did not apply the http/https rules (check: firewall-cmd --list-all)"
+    fi
+else
+    warn "firewalld not running; http/https + mail/dns/ftp were NOT opened in a firewall"
 fi
 
 # -- APP_URL follows the chosen host. Explicit choices (flag/prompt) always
@@ -1211,7 +1239,13 @@ if [ -f /etc/nginx/conf.d/panel.conf ] && [ "$ADMIN_PORT_V" != "80" ] && [ "$ADM
     if systemctl is-active firewalld >/dev/null 2>&1; then
         firewall-cmd --permanent --add-port=${ADMIN_PORT_V}/tcp >/dev/null 2>&1 || true
         firewall-cmd --reload >/dev/null 2>&1 || true
-        step "firewall opened for admin port ${ADMIN_PORT_V}/tcp"
+        if firewall-cmd --query-port=${ADMIN_PORT_V}/tcp >/dev/null 2>&1; then
+            step "firewall opened for admin port ${ADMIN_PORT_V}/tcp"
+        else
+            warn "firewall did not accept the admin port ${ADMIN_PORT_V}/tcp rule"
+        fi
+    else
+        warn "firewalld not running; admin port ${ADMIN_PORT_V}/tcp was NOT opened in a firewall"
     fi
     if nginx -t 2>/dev/null; then
         systemctl reload-or-restart nginx >/dev/null 2>&1 || true
