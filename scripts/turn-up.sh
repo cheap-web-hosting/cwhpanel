@@ -504,7 +504,12 @@ step "mail services enabled (agent applies virtual-user config in step 6)"
 # ---------------------------------------------------------------------------
 log "5/7 SELinux MCS policy"
 if command -v semodule >/dev/null 2>&1; then
-    ( cd "$here/agent/selinux" && bash setup.sh ) || warn "SELinux policy setup failed (continuing)"
+    if [ -f "$here/agent/selinux/setup.sh" ]; then
+        ( cd "$here/agent/selinux" && bash setup.sh )
+    elif [ -f "$here/agent/selinux/install-policy.sh" ]; then
+        # Runtime bundles ship compiled policy modules only (no source).
+        bash "$here/agent/selinux/install-policy.sh"
+    fi || warn "SELinux policy setup failed (continuing)"
     # Per-account FPM reads account homes via explicit allow rules; the agent
     # also toggles these booleans during provisioning, but set them now too.
     setsebool -P httpd_enable_homedirs=on 2>/dev/null || true

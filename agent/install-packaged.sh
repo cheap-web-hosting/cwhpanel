@@ -56,12 +56,41 @@ if [ -z "$PANEL_GROUP_NAME" ] && [ "$PANEL_GID" != "0" ]; then
     PANEL_GROUP_NAME="$(getent group "$PANEL_GID" | cut -d: -f1 || true)"
 fi
 
-cat > /etc/systemd/system/cwhpanel-agent.service.d/override.conf <<EOF
-[Service]
-Environment=CWH_AGENT_ALLOWED_UIDS=$MERGE_UIDS
-Environment=CWH_AGENT_ALLOWED_GIDS=$MERGE_GIDS
-Environment=CWH_AGENT_ALLOWED_GROUPS=${PANEL_GROUP_NAME:-}
-EOF
+# MUST mirror agent/install.sh. A packaged install used to write only the
+# uid/gid lists (and the wrong group variable), so the socket stayed
+# root:root (the panel could not connect), the 30s default killed long ops
+# (panel updates, app CLIs) and the trust-model keys/mode were lost.
+{
+    echo "[Service]"
+    echo "Environment=CWH_AGENT_SOCKET=$SOCKET"
+    echo "Environment=CWH_AGENT_ALLOWED_UIDS=$MERGE_UIDS"
+    echo "Environment=CWH_AGENT_ALLOWED_GIDS=$MERGE_GIDS"
+    echo "Environment=CWH_AGENT_TIMEOUT=300"
+    if [ -n "$PANEL_GROUP_NAME" ]; then
+        echo "Environment=CWH_AGENT_SOCKET_GROUP=$PANEL_GROUP_NAME"
+    fi
+    PANEL_ENV_SRC="$here/../.env"
+    if [ -f /opt/cwhpanel/.env ]; then
+        PANEL_ENV_SRC=/opt/cwhpanel/.env
+    fi
+    ADMIN_KEY="$(grep -E '^CWH_PANEL_ADMIN_KEY=' "$PANEL_ENV_SRC" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+    CUSTOMER_KEY="$(grep -E '^CWH_PANEL_CUSTOMER_KEY=' "$PANEL_ENV_SRC" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+    [ -n "$ADMIN_KEY" ] && echo "Environment=CWH_AGENT_ADMIN_KEY=$ADMIN_KEY"
+    [ -n "$CUSTOMER_KEY" ] && echo "Environment=CWH_AGENT_CUSTOMER_KEY=$CUSTOMER_KEY"
+    if [ -z "${CWH_AGENT_TICKET_MODE:-}" ] && [ -f "$OLD_OVERRIDE" ]; then
+        CWH_AGENT_TICKET_MODE="$(grep -E '^Environment=CWH_AGENT_TICKET_MODE=' "$OLD_OVERRIDE" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+    fi
+    if [ -z "${CWH_AGENT_TICKET_MODE:-}" ]; then
+        echo "Environment=CWH_AGENT_TICKET_MODE=enforce"
+    else
+        echo "Environment=CWH_AGENT_TICKET_MODE=$CWH_AGENT_TICKET_MODE"
+    fi
+    if [ -f "$OLD_OVERRIDE" ]; then
+        grep -E '^Environment=CWH_AGENT_(ADMIN|CUSTOMER)_KEY_OLD=' "$OLD_OVERRIDE" 2>/dev/null || true
+    fi
+} > /etc/systemd/system/cwhpanel-agent.service.d/override.conf
+chmod 750 /etc/systemd/system/cwhpanel-agent.service.d 2>/dev/null || true
+chmod 640 /etc/systemd/system/cwhpanel-agent.service.d/override.conf 2>/dev/null || true
 
 systemctl daemon-reload
 systemctl enable cwhpanel-agent >/dev/null 2>&1 || true
