@@ -1,0 +1,154 @@
+policy_module(cwhpanel, 1.0.1)
+
+############################################
+# Account web content type
+#
+# Hosting account content (document roots, logs, tmp dirs) is labeled
+# cwhpanel_account_t so it is isolated from user_home_t and can be served by
+# nginx and PHP-FPM (both run in httpd_t).
+############################################
+type cwhpanel_account_t;
+files_type(cwhpanel_account_t);
+############################################
+# SSH chroot jail skeleton type
+#
+# Jailed shell accounts are confined with ChrootDirectory /jail/<user>. The
+# skeleton itself (root-owned dirs, symlinks, minimal /etc) is labeled
+# cwhpanel_jail_t. Bind-mounted content keeps its source labels (bin_t for
+# /usr, user_home_t for the account home), so the specs in cwhpanel.fc
+# deliberately never match below the usr/ and home/ mountpoints.
+# sshd only traverses + stats the skeleton; the login shell itself runs as
+# the account's SELinux user (unconfined_u by default).
+############################################
+type cwhpanel_jail_t;
+files_type(cwhpanel_jail_t);
+
+############################################
+# Agent socket type
+#
+# The privileged agent's control socket lives in /run/cwhpanel/agent.sock and
+# must be reachable by the panel's PHP-FPM (httpd_t) so it can issue provisioning
+# operations. Peer-credential (SO_PEERCRED) checks still gate who may use it.
+############################################
+type cwhpanel_agent_sock_t;
+files_type(cwhpanel_agent_sock_t);
+
+############################################
+# Per-account nginx worker port type
+#
+# Each isolated account's nginx worker binds a dedicated loopback port
+# (12000 + account_id). Those ports are labeled cwhpanel_worker_port_t so
+# httpd_t (the per-account nginx) may bind them without widening httpd_t's
+# access to the generic unreserved_port_t range.
+############################################
+type cwhpanel_worker_port_t;
+corenet_port(cwhpanel_worker_port_t);
+
+require {
+    type httpd_t;
+    type ftpd_t;
+    type var_t;
+    type unconfined_service_t;
+    type dovecot_t;
+    type pop_port_t;
+    type smtp_port_t;
+    type postfix_smtpd_t;
+    type sshd_t;
+}
+
+# MCS is enforced on the *source* domain, so constrain httpd_t (the per-account
+# PHP-FPM + nginx worker domain). Each worker runs httpd_t:s0:cN and account
+# content is labeled s0:cN at provision time, so a cM worker cannot read cN
+# content. Without this the MLS/MCS constraints are exempted and categories are
+# inert. Placed after the require block (httpd_t must be declared first).
+mcs_constrained(httpd_t)
+
+# nginx + PHP-FPM read/write access to account content.
+# `open` is a distinct permission on modern kernels and must be granted
+# alongside read/write. `create`/`rmdir`/`rename` on dirs (and `rename` on
+# files) are required for normal app behavior — Matomo creates tmp/cache,
+# WordPress renames on update — and were proven missing by live AVC denials
+# on a Matomo install (httpd_t denied {create} on cwhpanel_account_t dirs).
+allow httpd_t cwhpanel_account_t:dir {
+    search read write create rmdir rename add_name remove_name getattr setattr lock ioctl open
+};
+allow httpd_t cwhpanel_account_t:file {
+    read write create rename getattr setattr lock unlink append ioctl open
+};
+allow httpd_t cwhpanel_account_t:lnk_file { read getattr };
+
+# Backup artifacts (/var/backups, var_t): the panel serves download links and
+# size listings through its own FPM pool (open_basedir explicitly allows the
+# path). This is the trusted control plane — app-level ownership checks gate
+# which row/artifact a customer may download.
+allow httpd_t var_t:dir { search getattr open read };
+allow httpd_t var_t:file { getattr open read ioctl lock };
+
+# vsftpd (ftpd_t) serves the same account trees over FTP: per-row login
+# users live under /home/<account>/ and need full read/write, proven by
+# live AVC denials on first enforcing run (mirrors the httpd_t block).
+allow ftpd_t cwhpanel_account_t:dir {
+    search read write create rmdir rename add_name remove_name getattr setattr lock ioctl open
+};
+allow ftpd_t cwhpanel_account_t:file {
+    read write create rename getattr setattr lock unlink append ioctl open
+};
+allow ftpd_t cwhpanel_account_t:lnk_file { read getattr };
+
+# Per-account nginx worker binds its dedicated loopback port and serves the
+# account's proxied requests. The shared front-door nginx (also httpd_t) connects
+# to that port to forward traffic.
+allow httpd_t cwhpanel_worker_port_t:tcp_socket { name_bind name_connect };
+
+############################################
+# Catalog/proxied app port type
+#
+# One-click Node.js/Python/binary apps listen on dedicated loopback ports
+# (22000-22999, see AppService::APP_PORT_MIN/MAX). Those ports are labeled
+# cwhpanel_app_port_t so the account nginx worker (httpd_t) may proxy to
+# them without widening httpd_t's access to generic unreserved_port_t.
+############################################
+type cwhpanel_app_port_t;
+corenet_port(cwhpanel_app_port_t);
+
+# Account workers proxy app traffic to the app's loopback port.
+allow httpd_t cwhpanel_app_port_t:tcp_socket { name_bind name_connect };
+
+# The panel's PHP-FPM (httpd_t) connects to the agent's Unix socket and writes
+# NDJSON requests to it.
+allow httpd_t cwhpanel_agent_sock_t:sock_file { write getattr };
+allow httpd_t cwhpanel_agent_sock_t:unix_stream_socket { connectto write read getattr };
+# The agent runs in its own confined domain (cwhpanel_agent_t, see
+# cwhpanel_agent.te + cwhpanel_agent_allow.te); httpd_t needs connectto on that
+# process's Unix-stream-socket peer for the socket handshake to succeed
+# (SELinux checks the server process context on connectto). Kept optional: the
+# agent domain is a SEPARATE policy module that may not be installed yet (and
+# the agent module itself needs this module's cwhpanel_agent_sock_t), so a hard
+# require here makes the two modules circular and semodule refuses to link.
+optional_policy(`
+    gen_require(`
+        type cwhpanel_agent_t;
+    ')
+    allow httpd_t cwhpanel_agent_t:unix_stream_socket { connectto };
+')
+allow httpd_t unconfined_service_t:unix_stream_socket { connectto };
+allow httpd_t unconfined_service_t:sock_file { write };
+
+# The webmail (panel PHP-FPM, httpd_t) connects to Dovecot IMAP on port 143/993
+# (labeled pop_port_t) and exchanges data with the dovecot process (dovecot_t).
+allow httpd_t pop_port_t:tcp_socket { name_connect };
+allow httpd_t dovecot_t:tcp_socket { read write };
+allow dovecot_t httpd_t:tcp_socket { read write };
+
+# The webmail also submits outgoing mail via SMTP submission (port 587, labeled
+# smtp_port_t) and talks to the postfix smtpd process.
+allow httpd_t smtp_port_t:tcp_socket { name_connect };
+allow httpd_t postfix_smtpd_t:tcp_socket { read write };
+allow postfix_smtpd_t httpd_t:tcp_socket { read write };
+
+# sshd traverses + stats the chroot jail skeleton (cwhpanel_jail_t) on login.
+# Home content (authorized_keys) is reached through the bind mount under its
+# own labels, gated by the ssh_chroot_rw_homedirs boolean (set in setup.sh).
+allow sshd_t cwhpanel_jail_t:dir { search read getattr open };
+allow sshd_t cwhpanel_jail_t:file { read getattr open };
+allow sshd_t cwhpanel_jail_t:lnk_file { read getattr };

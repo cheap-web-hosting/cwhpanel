@@ -1,0 +1,597 @@
+policy_module(cwhpanel_agent_allow, 1.0.0)
+
+require {
+	type httpd_t;
+	type httpd_config_t;
+	type sshd_exec_t;
+	type cwhpanel_agent_t;
+	type httpd_log_t;
+	type antivirus_exec_t;
+	type rsync_exec_t;
+	type antivirus_db_t;
+	type postfix_map_exec_t;
+	type devlog_t;
+	type node_t;
+	type cwhpanel_jail_t;
+	type user_home_dir_t;
+	type httpd_user_content_t;
+	type device_t;
+	type setfiles_exec_t;
+	type mysqld_etc_t;
+	type kernel_t;
+	type httpd_exec_t;
+	type security_t;
+	type sshd_key_t;
+	type var_lib_t;
+	type ftpd_unit_file_t;
+	type setsebool_exec_t;
+	type fs_t;
+	type httpd_var_run_t;
+	type shadow_t;
+	type pstore_t;
+	type hugetlbfs_t;
+	type mysqld_t;
+	type root_t;
+	type mock_var_lib_t;
+	type cert_t;
+	type shell_exec_t;
+	type debugfs_t;
+	type rpm_exec_t;
+	type rpm_script_t;
+ 	type rpm_var_cache_t;
+ 	type rpm_var_lib_t;
+ 	type rpm_log_t;
+ 	type modules_object_t;
+ 	type semanage_store_t;
+	type load_policy_exec_t;
+	type semanage_read_lock_t;
+	type semanage_trans_lock_t;
+ 	type default_context_t;
+ 	type file_context_t;
+	type sysfs_t;
+	type ssh_home_t;
+	type http_port_t;
+	type httpd_unit_file_t;
+	type httpd_modules_t;
+	type dns_port_t;
+	type system_dbusd_var_run_t;
+	type system_dbusd_t;
+	type dbusd_etc_t;
+	type init_t;
+	type init_var_run_t;
+	type net_conf_t;
+	type mount_exec_t;
+	type sendmail_exec_t;
+	type postfix_master_t;
+	type postfix_spool_t;
+	type postfix_spool_bounce_t;
+	type postfix_var_run_t;
+	type postfix_postqueue_exec_t;
+	type postfix_postqueue_t;
+	type postfix_postdrop_exec_t;
+	type postfix_postdrop_t;
+	type postfix_master_exec_t;
+	type postfix_public_t;
+	type postfix_private_t;
+	type debuginfo_exec_t;
+	type postfix_exec_t;
+	type postfix_master_exec_t;
+	type etc_aliases_t;
+	type system_cron_spool_t;
+	type systemd_unit_file_t;
+	type mount_var_run_t;
+	type dovecot_etc_t;
+	type passwd_file_t;
+	type httpd_var_lib_t;
+	type useradd_exec_t;
+	type default_context_t;
+	type systemd_userdbd_runtime_t;
+	type home_root_t;
+	type mysqld_db_t;
+	type cgroup_t;
+	type var_t;
+	type systemd_unit_file_t;
+	type tracefs_t;
+	type user_home_t;
+	type cwhpanel_account_t;
+	type etc_t;
+	type syslogd_var_run_t;
+	type mysqld_var_run_t;
+	type postfix_etc_t;
+	type groupadd_exec_t;
+	type ifconfig_exec_t;
+	type tmpfs_t;
+	type tmp_t;
+	type node_t;
+	type unlabeled_t;
+	type lib_t;
+	type usr_t;
+	type man_t;
+	type var_log_t;
+	type journalctl_exec_t;
+	type bin_t;
+	type cwhpanel_agent_sock_t;
+	type etc_t;
+	type system_conf_t;
+	type proc_t;
+	type sysctl_net_t;
+	type iptables_exec_t;
+	type kernel_t;
+	type var_run_t;
+	type nsfs_t;
+	type file_context_t;
+	type pdns_conf_t;
+	type cache_home_t;
+	type data_home_t;
+	type config_home_t;
+# [free] removed (spamassassin policy type absent): 	type spamc_home_t;
+	type proc_net_t;
+# [free] removed (spamassassin policy type absent): 	type spamd_unit_file_t;
+	type cwhpanel_worker_port_t;
+	type http_port_t;
+	type mail_spool_t;
+	type dovecot_var_run_t;
+	type lastlog_t;
+	type devpts_t;
+	type default_t;
+	type shell_exec_t;
+	type ld_so_t;
+	class file { append create execute execute_no_trans getattr ioctl link lock map open read relabelfrom relabelto rename setattr unlink write };
+	class dir { add_name create getattr mounton open read relabelfrom relabelto remove_name rmdir search setattr write };
+	class filesystem { getattr remount unmount mount };
+	class chr_file { create getattr relabelfrom relabelto setattr unlink };
+	class lnk_file { create read relabelfrom relabelto unlink };
+	class sock_file write;
+	class unix_stream_socket connectto;
+	class dbus send_msg;
+	class unix_dgram_socket { connect create ioctl sendto };
+	class netlink_audit_socket { create nlmsg_relay };
+	class process { execmem setfscreate transition siginh rlimitinh setexec };
+	class cap_userns sys_ptrace;
+	class udp_socket { connect create getattr ioctl };
+	class tcp_socket { bind create listen name_bind node_bind setopt };
+	class capability net_bind_service;
+	class netlink_route_socket { bind create getattr nlmsg_read };
+	class security setbool;
+}
+
+#============= cwhpanel_agent_t ==============
+allow cwhpanel_agent_t cert_t:dir { getattr open read search };
+allow cwhpanel_agent_t cert_t:file { getattr open read };
+allow cwhpanel_agent_t cgroup_t:filesystem getattr;
+allow cwhpanel_agent_t cwhpanel_account_t:dir { add_name create getattr open read relabelfrom relabelto remove_name rename reparent rmdir search setattr write };
+allow cwhpanel_agent_t cwhpanel_account_t:file { append create execute execute_no_trans getattr ioctl lock map open read relabelfrom relabelto rename setattr unlink write };
+# Account-content creation/removal (file-manager mkdir/rmdir, backup
+# restore over customer trees, installer staging).
+# Account-content labeling (MCS write-path): relabel newly written account files
+# to cwhpanel_account_t:<level>. Without relabelto/mls_relabelto the confined
+# agent's chcon fails and root-written files stay at level s0 (readable by
+# every MCS category) or with the wrong type.
+allow cwhpanel_agent_t cwhpanel_account_t:lnk_file { relabelto relabelfrom create unlink rename write setattr read getattr link };
+allow cwhpanel_agent_t cwhpanel_account_t:chr_file { relabelto relabelfrom };
+# relabelfrom on the fcontext types fresh account files inherit (home root,
+# docroot content, installer staging).
+allow cwhpanel_agent_t user_home_dir_t:dir { add_name create getattr open read relabelfrom relabelto remove_name rename reparent rmdir search setattr write };
+allow cwhpanel_agent_t user_home_dir_t:file { append create execute execute_no_trans getattr ioctl lock map open read relabelfrom relabelto rename setattr unlink write };
+allow cwhpanel_agent_t user_home_dir_t:lnk_file { relabelfrom relabelto create read getattr setattr unlink rename };
+allow cwhpanel_agent_t user_home_t:dir { add_name create getattr open read relabelfrom relabelto remove_name rename reparent rmdir search setattr write };
+allow cwhpanel_agent_t user_home_t:file { append create execute execute_no_trans getattr ioctl lock map open read relabelfrom relabelto rename setattr unlink write };
+allow cwhpanel_agent_t user_home_t:lnk_file { create getattr read relabelfrom relabelto rename setattr unlink };
+# Customer content can legitimately carry httpd_user_content_t (docroots
+# before/outside MCS relabeling); the agent must read it for backups and
+# traffic logs.
+allow cwhpanel_agent_t httpd_user_content_t:dir { add_name create getattr open read relabelfrom relabelto remove_name rename rmdir search setattr write };
+allow cwhpanel_agent_t httpd_user_content_t:file { append create getattr open read relabelfrom relabelto rename setattr unlink write };
+allow cwhpanel_agent_t httpd_user_content_t:lnk_file { create getattr open read relabelfrom relabelto rename unlink write };
+# Type/s0 auto-fix relabels content that inherited httpd_user_content_t
+# (fresh uploads/extracts) to cwhpanel_account_t. A chcon from that source
+# needs relabelfrom on it; without these the sweep dies with AVC denials and
+# the drift is never repaired.
+# Restore/backup flows also write back into customer content.
+allow cwhpanel_agent_t var_lib_t:dir { add_name create getattr open read relabelfrom remove_name rename reparent rmdir search setattr write };
+allow cwhpanel_agent_t var_lib_t:file { append create getattr ioctl lock map open read relabelfrom rename setattr unlink write };
+allow cwhpanel_agent_t var_lib_t:lnk_file { relabelfrom };
+allow cwhpanel_agent_t cwhpanel_jail_t:chr_file { create getattr read relabelfrom relabelto setattr unlink write };
+allow cwhpanel_agent_t cwhpanel_jail_t:dir { add_name create getattr mounton open read relabelfrom relabelto remove_name rmdir search setattr write };
+allow cwhpanel_agent_t cwhpanel_jail_t:file { append create getattr ioctl mounton open read relabelfrom relabelto rename setattr unlink write };
+allow cwhpanel_agent_t cwhpanel_jail_t:lnk_file { create getattr read relabelfrom relabelto rename setattr unlink };
+allow cwhpanel_agent_t cwhpanel_worker_port_t:tcp_socket name_bind;
+allow cwhpanel_agent_t debugfs_t:filesystem getattr;
+allow cwhpanel_agent_t default_context_t:dir { add_name create getattr open read remove_name rename search write };
+allow cwhpanel_agent_t default_context_t:file { create getattr open read rename setattr unlink write };
+allow cwhpanel_agent_t device_t:filesystem { getattr mount unmount };
+allow cwhpanel_agent_t devlog_t:lnk_file read;
+allow cwhpanel_agent_t devlog_t:sock_file write;
+allow cwhpanel_agent_t devpts_t:filesystem getattr;
+allow cwhpanel_agent_t dovecot_etc_t:dir { add_name getattr open read remove_name search write };
+allow cwhpanel_agent_t dovecot_etc_t:file { create getattr open read rename setattr unlink write };
+allow cwhpanel_agent_t dovecot_var_run_t:dir { getattr open read search };
+allow cwhpanel_agent_t etc_t:file { append create getattr link lock open read relabelfrom relabelto rename setattr unlink write };
+allow cwhpanel_agent_t etc_t:dir { add_name create getattr open read relabelfrom relabelto remove_name rename rmdir search setattr write };
+allow cwhpanel_agent_t etc_t:lnk_file { relabelfrom relabelto };
+allow cwhpanel_agent_t file_context_t:dir { add_name create getattr open read remove_name rename search write };
+allow cwhpanel_agent_t file_context_t:file { create getattr map open read rename setattr unlink write };
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t fs_t:filesystem { getattr remount unmount };
+allow cwhpanel_agent_t ftpd_unit_file_t:file getattr;
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t groupadd_exec_t:file { execute execute_no_trans map open read };
+allow cwhpanel_agent_t home_root_t:dir { add_name create getattr open read relabelfrom relabelto remove_name search setattr write };
+allow cwhpanel_agent_t home_root_t:file { relabelfrom relabelto };
+allow cwhpanel_agent_t home_root_t:lnk_file { relabelfrom relabelto };
+allow cwhpanel_agent_t home_root_t:chr_file { relabelfrom relabelto };
+allow cwhpanel_agent_t user_home_dir_t:chr_file { relabelfrom };
+allow cwhpanel_agent_t user_home_t:chr_file { relabelfrom };
+allow cwhpanel_agent_t http_port_t:tcp_socket { name_bind name_connect };
+allow cwhpanel_agent_t httpd_config_t:dir { add_name getattr open read remove_name search write };
+allow cwhpanel_agent_t httpd_config_t:file { create getattr open read rename unlink write };
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t httpd_exec_t:file { execute execute_no_trans getattr map open read setattr unlink };
+allow cwhpanel_agent_t httpd_log_t:dir { search read getattr open write add_name create remove_name };
+allow cwhpanel_agent_t httpd_log_t:file { open read write append create getattr setattr unlink rename };
+allow cwhpanel_agent_t antivirus_exec_t:file { execute execute_no_trans getattr open read map };
+allow cwhpanel_agent_t antivirus_db_t:dir { search read getattr open };
+allow cwhpanel_agent_t antivirus_db_t:file { open read getattr };
+allow cwhpanel_agent_t httpd_var_lib_t:dir { add_name create getattr open read relabelfrom relabelto remove_name rename rmdir search setattr write };
+allow cwhpanel_agent_t httpd_var_run_t:file { getattr open read write };
+allow cwhpanel_agent_t httpd_var_run_t:dir { getattr open read search };
+allow cwhpanel_agent_t httpd_var_run_t:lnk_file { read getattr };
+allow cwhpanel_agent_t httpd_var_run_t:sock_file { getattr read write };
+allow cwhpanel_agent_t hugetlbfs_t:filesystem getattr;
+allow cwhpanel_agent_t hugetlbfs_t:file { map open read getattr };
+allow cwhpanel_agent_t kernel_t:unix_dgram_socket sendto;
+allow cwhpanel_agent_t kernel_t:unix_stream_socket connectto;
+allow cwhpanel_agent_t lastlog_t:file { open read write };
+allow cwhpanel_agent_t mail_spool_t:dir { add_name remove_name search write };
+allow cwhpanel_agent_t mail_spool_t:file { create getattr open setattr unlink write };
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t mount_exec_t:file { execute execute_no_trans map open read };
+# `ip` (net.addr.list / net.ipv4|6.add|del — per-account dedicated IPs and
+# boot-restore re-binding): /usr/sbin/ip is typed ifconfig_exec_t (not bin_t),
+# so executing it from the confined agent needs an explicit allow. Runs
+# in-place (execute_no_trans): the agent domain already holds net_admin/net_raw
+# + netlink route sockets, so the add/del ops work without a domain transition.
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t ifconfig_exec_t:file { execute execute_no_trans getattr map open read };
+allow cwhpanel_agent_t mount_var_run_t:dir { getattr read search write };
+allow cwhpanel_agent_t mysqld_db_t:dir search;
+# MariaDB bind drop-in (mysql.bind.write, coupled to the remote gate).
+allow cwhpanel_agent_t mysqld_etc_t:dir { add_name getattr open read remove_name rename search write };
+allow cwhpanel_agent_t mysqld_etc_t:file { create getattr open read rename setattr unlink write };
+
+#!!!! This avc can be allowed using the boolean 'daemons_enable_cluster_mode'
+allow cwhpanel_agent_t mysqld_t:unix_stream_socket connectto;
+allow cwhpanel_agent_t mysqld_var_run_t:sock_file write;
+allow cwhpanel_agent_t node_t:tcp_socket { getattr name_connect node_bind read recv_msg send_msg write };
+allow cwhpanel_agent_t passwd_file_t:file { append create getattr lock open read rename setattr unlink write };
+allow cwhpanel_agent_t postfix_etc_t:dir { add_name getattr open read remove_name search write };
+allow cwhpanel_agent_t postfix_etc_t:file { create getattr lock open read rename setattr unlink write };
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t postfix_map_exec_t:file { execute execute_no_trans map open read };
+allow cwhpanel_agent_t pstore_t:filesystem getattr;
+allow cwhpanel_agent_t root_t:chr_file { create getattr relabelfrom setattr };
+allow cwhpanel_agent_t root_t:dir { add_name create mounton relabelfrom remove_name setattr write };
+
+#!!!! This avc can be allowed using the boolean 'daemons_dump_core'
+
+#!!!! This avc can be allowed using the boolean 'daemons_dump_core'
+allow cwhpanel_agent_t root_t:file { create getattr open relabelfrom rename setattr write };
+allow cwhpanel_agent_t root_t:lnk_file { create relabelfrom };
+allow cwhpanel_agent_t security_t:file { getattr map open read setattr write };
+allow cwhpanel_agent_t security_t:security { compute_create load_policy setbool };
+allow cwhpanel_agent_t self:cap_userns sys_ptrace;
+allow cwhpanel_agent_t self:capability { audit_control audit_write chown dac_override dac_read_search fowner fsetid kill mknod net_admin net_bind_service net_raw setfcap setgid setuid sys_admin sys_boot sys_chroot sys_nice sys_ptrace sys_resource };
+allow cwhpanel_agent_t self:netlink_audit_socket { bind connect create getattr nlmsg_relay read sendto setopt write };
+allow cwhpanel_agent_t self:netlink_route_socket { bind connect create getattr nlmsg_read nlmsg_write read sendto setopt write };
+allow cwhpanel_agent_t self:process { execmem getattr getsched setexec setfscreate setpgid setrlimit setsched signal_perms };
+allow cwhpanel_agent_t self:tcp_socket { bind connect create getattr getopt ioctl listen name_bind read setattr setopt write };
+allow cwhpanel_agent_t self:udp_socket { connect create getattr ioctl name_bind read recv_msg recvfrom send_msg setopt write };
+allow cwhpanel_agent_t self:unix_dgram_socket { connect create getattr ioctl read sendto setopt write };
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t setfiles_exec_t:file { execute execute_no_trans map open read };
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t setsebool_exec_t:file { entrypoint execute execute_no_trans getattr map open read };
+allow cwhpanel_agent_t shadow_t:file { append create getattr open read rename setattr unlink write };
+
+# dnf/updates + firewall-cmd both talk to systemd/D-Bus over its private
+# socket (/run/systemd/private, init_t / init_var_run_t) and the system bus
+# (/run/dbus/system_bus_socket, system_dbusd_var_run_t / system_dbusd_t).
+# firewall-cmd needs the bus for firewalld; a blocked connect makes both the
+# Firewall page and the bot-shield sweep fail (worked pre-confinement).
+allow cwhpanel_agent_t init_var_run_t:sock_file { read write getattr };
+allow cwhpanel_agent_t init_t:unix_stream_socket { connectto getattr read write };
+allow cwhpanel_agent_t system_dbusd_var_run_t:dir { search read getattr open };
+allow cwhpanel_agent_t system_dbusd_var_run_t:sock_file { read write getattr open };
+allow cwhpanel_agent_t system_dbusd_t:unix_stream_socket { connectto getattr read write };
+allow cwhpanel_agent_t system_dbusd_t:dbus send_msg;
+allow system_dbusd_t cwhpanel_agent_t:dbus send_msg;
+allow cwhpanel_agent_t dbusd_etc_t:dir { search read getattr open };
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t shell_exec_t:file { execute execute_no_trans map };
+# panel.update.apply: rsync is used for the backup/swap of the live panel
+# tree (/opt/cwhpanel <-> /var/lib/cwhpanel/panel-backup).
+allow cwhpanel_agent_t rsync_exec_t:file { execute execute_no_trans open read getattr map ioctl };
+# ----- dnf / rpm (updateinfo cves, check-update, security upgrade) -----
+# The confined agent runs dnf for the Updates page + the CVE watch module.
+# dnf itself is rpm_exec_t; it reads/writes its cache (/var/cache/dnf,
+# rpm_var_cache_t), its rpmdb (/var/lib/rpm, rpm_var_lib_t), its logs
+# (/var/log/dnf*.log, rpm_log_t) and the modulefailsafe tree (modules).
+# Harvested from a permissive run of updates.pending/updates.cves/updates.apply.
+allow cwhpanel_agent_t rpm_exec_t:file { execute execute_no_trans open read map getattr ioctl };
+allow cwhpanel_agent_t rpm_var_cache_t:dir { search read getattr open add_name remove_name create write setattr rmdir rename };
+allow cwhpanel_agent_t rpm_var_cache_t:file { create open read write unlink getattr setattr lock rename append };
+allow cwhpanel_agent_t rpm_var_lib_t:dir { search read getattr open add_name remove_name create write setattr rmdir rename };
+allow cwhpanel_agent_t rpm_var_lib_t:file { open read write map getattr setattr create unlink lock rename append };
+# dnf's per-repo persistdir (/var/lib/dnf/repos/...) — created under /var/lib
+# (var_lib_t) on first run after a cache wipe; denied live ("Cannot create
+# persistdir /var/lib/dnf/repos/<repo>: Permission denied").
+# RPM's selinux plugin (rpm-plugin-selinux) reads the active policy to apply
+# file contexts during install/upgrade: /var/lib/selinux (semanage_store_t)
+# and /etc/selinux/targeted/contexts (default_context_t/file_context_t)
+# etc. Denied live ("RPM: error: Plugin selinux: hook tsm_pre failed") and
+# dnf aborts the whole transaction. Read-only traversal/read is enough.
+allow cwhpanel_agent_t semanage_store_t:dir { add_name create getattr open read remove_name rename rmdir search write };
+allow cwhpanel_agent_t semanage_store_t:file { create getattr map open read rename setattr unlink write };
+# setsebool -P (selinux.httpd.homedirs): exec load_policy and read the
+# semanage locks. Denied live (exit 255, AVCs on load_policy + both locks).
+allow cwhpanel_agent_t load_policy_exec_t:file { execute execute_no_trans getattr open read map };
+allow cwhpanel_agent_t semanage_read_lock_t:file { open read write getattr lock };
+allow cwhpanel_agent_t semanage_trans_lock_t:file { open read write getattr lock };
+allow cwhpanel_agent_t rpm_log_t:file { open read write append getattr };
+allow cwhpanel_agent_t modules_object_t:dir { search read getattr open };
+allow cwhpanel_agent_t sysfs_t:dir { search read getattr open };
+# dnf must reach its repos (http/https) and resolve names (dns) — the CVE watch
+# and Updates machinery run package-manager operations from this domain.
+allow cwhpanel_agent_t dns_port_t:udp_socket { recv_msg recvfrom send_msg sendto };
+allow cwhpanel_agent_t dns_port_t:tcp_socket { name_connect read write };
+allow cwhpanel_agent_t net_conf_t:file { read getattr open };
+# mail.aliases.write → newaliases (sendmail_exec_t) + postfix reload bump.
+allow cwhpanel_agent_t sendmail_exec_t:file { execute execute_no_trans open read getattr map };
+allow cwhpanel_agent_t postfix_exec_t:file { execute execute_no_trans open read getattr map ioctl };
+allow cwhpanel_agent_t postfix_master_exec_t:file { execute execute_no_trans getattr ioctl map open read };
+allow cwhpanel_agent_t etc_aliases_t:file { read write open getattr lock ioctl create unlink }; 
+allow cwhpanel_agent_t etc_aliases_t:dir { search read getattr open add_name remove_name write create };
+# updates.configure writes the managed /etc/cron.d/cwhpanel-updates drop-in.
+allow cwhpanel_agent_t system_cron_spool_t:dir { add_name create getattr open read remove_name rmdir search setattr write };
+allow cwhpanel_agent_t system_cron_spool_t:file { append create getattr lock open read rename setattr unlink write };
+# systemd.slice.create / unit writes live in /etc/systemd/system.
+allow cwhpanel_agent_t systemd_unit_file_t:dir { add_name create getattr open read remove_name rmdir search write };
+allow cwhpanel_agent_t systemd_unit_file_t:file { create getattr lock open read rename unlink write };
+allow cwhpanel_agent_t postfix_master_t:process signal;
+allow cwhpanel_agent_t postfix_spool_t:dir { add_name getattr open read remove_name search setattr write };
+allow cwhpanel_agent_t postfix_spool_t:file { create getattr open read rename setattr unlink };
+allow cwhpanel_agent_t postfix_spool_bounce_t:dir { add_name getattr open read remove_name search setattr write };
+allow cwhpanel_agent_t postfix_spool_bounce_t:file { create getattr open read rename setattr unlink };
+allow cwhpanel_agent_t postfix_var_run_t:file { getattr lock open read write };
+# [free] removed (spamassassin policy type absent): allow cwhpanel_agent_t spamd_unit_file_t:file getattr;
+allow cwhpanel_agent_t ssh_home_t:dir { add_name getattr open read relabelto remove_name rmdir search setattr write };
+allow cwhpanel_agent_t ssh_home_t:file { create getattr open read relabelto rename setattr unlink write };
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t sshd_exec_t:file { execute execute_no_trans map open read };
+allow cwhpanel_agent_t sshd_key_t:file { getattr open read };
+allow cwhpanel_agent_t syslogd_var_run_t:dir search;
+allow cwhpanel_agent_t systemd_userdbd_runtime_t:dir { getattr open read search };
+# dnf erase (php.versions.uninstall) probes the libselinux status page, reads
+# unit drop-ins inside nginx/httpd .service.d (Wants=phpXX-php-fpm.conf), stats
+# /usr/lib64/httpd, sets/clears file capabilities, and computes security
+# contexts for relabeling — all denied live during a PHP version uninstall
+# (Oct-2026). Each addition below corresponds to a specific AVC denial.
+allow cwhpanel_agent_t httpd_unit_file_t:file { read open getattr unlink };
+allow cwhpanel_agent_t httpd_modules_t:dir getattr;
+# RPM runs package scriptlets (bash -c) in rpm_script_t; the confined agent
+# needs the explicit transition (entrypoint on shell_exec_t already ships in
+# base policy). Denied live during a PHP version uninstall (Oct-2026).
+allow cwhpanel_agent_t rpm_script_t:process { transition siginh rlimitinh };
+# dnf erase leaves no denials behind (harvested from a permissive run of
+# php.versions.uninstall — SCL package erasure removes unit drop-ins, the
+# httpd_exec_t-labeled php-fpm binary, empty SCL dirs, compresses man pages,
+# and prunes /var/log + /var/opt/remi):
+allow cwhpanel_agent_t usr_t:dir rmdir;
+allow cwhpanel_agent_t lib_t:dir { relabelfrom relabelto rmdir };
+# RPM's SELinux plugin re-applies file contexts to installed payloads; even a
+# no-op relabel requires relabelfrom + relabelto on the source type. Denied
+# live on phpXX module installs (tidy.so under /usr/lib64/phpXX is lib_t):
+# "Error unpacking rpm package ... Transaction failed", which aborted the
+# whole module install.
+allow cwhpanel_agent_t lib_t:file { relabelfrom relabelto };
+allow cwhpanel_agent_t lib_t:lnk_file { relabelfrom relabelto };
+allow cwhpanel_agent_t man_t:dir { write add_name remove_name };
+allow cwhpanel_agent_t man_t:file { create unlink setattr rename };
+allow cwhpanel_agent_t var_log_t:dir { add_name create getattr open read remove_name search write };
+# App logs (`app.logs`) shell out to journalctl; without exec + journal read
+# the op dies "Permission denied" and the Manage → Logs panel renders empty
+# (the service swallowed the error). Persistent journal lives in /var/log/journal.
+allow cwhpanel_agent_t journalctl_exec_t:file { getattr open read map execute execute_no_trans };
+allow cwhpanel_agent_t var_log_t:file { append create getattr map open read write };
+allow cwhpanel_agent_t var_log_t:lnk_file { read getattr };
+allow cwhpanel_agent_t httpd_var_lib_t:file { getattr open read write create setattr unlink rename relabelfrom relabelto };
+allow cwhpanel_agent_t httpd_var_lib_t:lnk_file { read getattr create unlink rename setattr };
+allow cwhpanel_agent_t systemd_userdbd_runtime_t:sock_file write;
+allow cwhpanel_agent_t tmpfs_t:filesystem getattr;
+allow cwhpanel_agent_t tmpfs_t:file { lock map open read write getattr };
+allow cwhpanel_agent_t tracefs_t:filesystem getattr;
+
+#!!!! This avc is a constraint violation.  You would need to modify the attributes of either the source or target types to allow this access.
+#Constraint rule: 
+#	constrain dir { create relabelfrom relabelto } ((u1 == u2 -Fail-)  or (t1 == can_change_object_identity -Fail-) ); Constraint DENIED
+
+#	Possible cause is the source user (system_u) and target user (unconfined_u) are different.
+
+#!!!! This avc is a constraint violation.  You would need to modify the attributes of either the source or target types to allow this access.
+#Constraint rule: 
+#	constrain file { create relabelfrom relabelto } ((u1 == u2 -Fail-)  or (t1 == can_change_object_identity -Fail-) ); Constraint DENIED
+
+#	Possible cause is the source user (system_u) and target user (unconfined_u) are different.
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow cwhpanel_agent_t useradd_exec_t:file { execute execute_no_trans map open read };
+allow cwhpanel_agent_t var_t:dir { add_name create getattr open read remove_name search write };
+allow cwhpanel_agent_t var_t:file { create getattr ioctl open read unlink write rename setattr };
+
+#============= httpd_t ==============
+
+#!!!! This avc can be allowed using the boolean 'httpd_execmem'
+allow httpd_t self:process execmem;
+
+# ---- runuser / PAM session-path allows (targeted harvest) ----
+
+# firewall-cmd drives firewalld over D-Bus (rich-rule block/unblock on the
+# Firewall page + bot-shield). The official chat interface grants the
+# bidirectional dbus send_msg against firewalld_t.
+firewalld_dbus_chat(cwhpanel_agent_t)
+firewalld_read_config(cwhpanel_agent_t)
+firewalld_read_pid_files(cwhpanel_agent_t)
+
+# dnf/curl client networking under the confined agent (updates.cves / updates.apply
+# + php.versions.install etc.). The agent's dnf failed to even resolve mirror
+# hosts under enforcing while the exact same command succeeded permissive; these
+# are the client-socket operations a network download needs: binding an
+# ephemeral local port, reading/writing the TCP stream, and receiving DNS
+# replies on the UDP socket (sendto was already allowed; recvfrom/name_bind
+# were not).
+allow cwhpanel_agent_t unlabeled_t:tcp_socket { name_connect read write send_msg recv_msg };
+# TLS CA bundle read (curl): ca-bundle.crt is a symlink (lnk_file) into cert_t.
+allow cwhpanel_agent_t cert_t:lnk_file { read getattr };
+
+# Agent-managed config writes under /etc (e.g. the app-netns helper's
+# /etc/sysctl.d/99-cwhpanel-appnet.conf). The agent is a trusted provisioning
+# daemon; keep the write scoped to the etc_t tree it legitimately manages.
+allow cwhpanel_agent_t system_conf_t:dir { search read write add_name remove_name create setattr open getattr };
+allow cwhpanel_agent_t system_conf_t:file { create open read write unlink rename getattr setattr lock };
+# sysctl writes for the app-netns helper (/proc/sys/net/ipv4/ip_forward, ...).
+allow cwhpanel_agent_t proc_t:file { getattr open read write };
+allow cwhpanel_agent_t sysctl_net_t:dir { search read open getattr };
+allow cwhpanel_agent_t sysctl_net_t:file { read write getattr open };
+# nft (app-netns helper) is typed iptables_exec_t (not bin_t).
+allow cwhpanel_agent_t iptables_exec_t:file { execute execute_no_trans getattr map open read };
+# nft talks to the kernel over NETLINK_NETFILTER.
+allow cwhpanel_agent_t self:netlink_netfilter_socket { create bind connect read write getopt setopt shutdown ioctl getattr };
+# nft's masquerade rule triggers an on-demand kernel module load
+# (nft-expr-masq). The confined agent must be allowed to request it —
+# without this the rule fails with "Could not process rule: No such file
+# or directory" even though the same command works unconfined.
+allow cwhpanel_agent_t kernel_t:system module_request;
+# `ip netns add` bind-mounts /var/run/netns (var_run_t), makes it shared, and
+# creates the per-namespace file there.
+allow cwhpanel_agent_t var_run_t:dir { add_name create getattr mounton open read remove_name search setattr write };
+allow cwhpanel_agent_t var_run_t:file { create open read write unlink rename getattr setattr lock mounton };
+# `ip netns add` opens the init namespace (nsfs_t) to bind-mount it, then
+# makes the mount tree shared/slave (mounton on /, unmount on nsfs).
+allow cwhpanel_agent_t nsfs_t:file { read open getattr };
+allow cwhpanel_agent_t nsfs_t:filesystem { mount unmount };
+# `ip netns add` mounts /proc, /sys and /dev inside the new namespace.
+allow cwhpanel_agent_t { sysfs_t proc_t tmpfs_t devpts_t }:dir mounton;
+allow cwhpanel_agent_t { sysfs_t proc_t tmpfs_t devpts_t }:filesystem { mount unmount };
+allow cwhpanel_agent_t device_t:dir mounton;
+# CageFS-lite (M2): bind sources and the socket placeholder file inside the jail.
+# Root cron.d files for jailed scheduled jobs (system_cron_spool_t).
+allow cwhpanel_agent_t { usr_t etc_t var_lib_t }:dir mounton;
+# Skeleton creation/relabeling (chcon -t cwhpanel_jail_t).
+allow cwhpanel_agent_t default_t:dir { relabelfrom };
+allow cwhpanel_agent_t default_t:file { relabelfrom };
+allow cwhpanel_agent_t default_t:lnk_file { relabelfrom };
+allow cwhpanel_agent_t default_t:chr_file { relabelfrom };
+# Jail payloads transition into the constrained web-serving domain at the
+# account's MCS level (setexeccon + execv from the agent domain).
+allow cwhpanel_agent_t httpd_t:process { transition siginh rlimitinh };
+allow cwhpanel_agent_t { bin_t usr_t shell_exec_t }:file { execute entrypoint read };
+# The target domain must also be allowed to execute/enter those file types.
+allow httpd_t { bin_t usr_t shell_exec_t }:file { execute entrypoint read };
+allow httpd_t ld_so_t:file { execute read map };
+# httpd_t must traverse the jail skeleton (symlinks + dirs) to reach the bound
+# system content.
+allow httpd_t cwhpanel_jail_t:lnk_file { read getattr };
+allow httpd_t cwhpanel_jail_t:dir { search getattr open read };
+# This host overlays /sys with a mock tree (mock_var_lib_t) — allow mounting it
+# into the per-account namespace too.
+allow cwhpanel_agent_t mock_var_lib_t:dir mounton;
+# Disk usage (`du`) traverses the whole account home, including dot-dirs
+# created by app runtimes (cache_home_t/data_home_t/config_home_t) and spamd
+# [free] removed (spamassassin policy type absent): (spamc_home_t) — grant read traversal over the home-derived types.
+# [free] removed (spamassassin policy type absent): allow cwhpanel_agent_t { user_home_t cache_home_t data_home_t config_home_t spamc_home_t }:dir { search read open getattr };
+# [free] removed (spamassassin policy type absent): allow cwhpanel_agent_t { user_home_t cache_home_t data_home_t config_home_t spamc_home_t }:file { read getattr open };
+# [free] removed (spamassassin policy type absent): allow cwhpanel_agent_t { user_home_t cache_home_t data_home_t config_home_t spamc_home_t }:lnk_file { read getattr };
+# pdnsutil reads /etc/pdns/pdns.conf to find the gmysql backend (DNS ops).
+allow cwhpanel_agent_t pdns_conf_t:dir { search read open getattr };
+allow cwhpanel_agent_t pdns_conf_t:file { read getattr open };
+
+# network.stats reads /proc/net/dev (/proc/net is a symlink under proc_net_t).
+allow cwhpanel_agent_t proc_net_t:dir { search read open getattr };
+allow cwhpanel_agent_t proc_net_t:file { read getattr open };
+allow cwhpanel_agent_t proc_net_t:lnk_file { read getattr };
+
+# The shared dnf singleflight lock file (updates.lock) lives in the agent's
+# socket dir as a regular FILE — allow create/open/read/write/unlink.
+allow cwhpanel_agent_t cwhpanel_agent_sock_t:file { create open read write unlink rename getattr setattr lock };
+
+# Runtime tarball extraction into /usr/local (node 26 update via tar): the
+# agent must write into the lib_t/usr_t/bin_t trees (/usr/local/bin, lib,
+# share, …). bin_t here is the label /usr/local/bin dir and files carry.
+allow cwhpanel_agent_t { lib_t usr_t bin_t }:dir { search read write add_name remove_name create setattr open getattr relabelfrom relabelto };
+allow cwhpanel_agent_t { lib_t usr_t bin_t }:file { read write create unlink rename getattr setattr open execute execute_no_trans map relabelfrom relabelto };
+allow cwhpanel_agent_t { lib_t usr_t bin_t }:lnk_file { read getattr create unlink rename setattr relabelfrom relabelto };
+# Name-resolution datagrams are sent to the nameserver's *address* (node_t /
+# unlabeled_t), not just its port type — sendmmsg() to 8.8.8.8 was still
+# EACCES with only dns_port_t allows (proven via strace on the agent's curl).
+allow cwhpanel_agent_t node_t:udp_socket { sendto recvfrom send_msg recv_msg };
+allow cwhpanel_agent_t unlabeled_t:udp_socket { sendto recvfrom send_msg recv_msg };
+
+# atomic_write() into /tmp (WriteManyThenRunSequence, e.g. app.runtime.install
+# writes the checksum file then renames it into place). The base module allows
+# tmp_t dir write/add_name/remove_name + file create/write/unlink but the rename
+# of the .tmp source to its final name needs `rename` on the file type — denied
+# EACCES under enforcing (proven live on the node runtime update path).
+allow cwhpanel_agent_t tmp_t:file { create getattr map open read rename setattr unlink write };
+allow cwhpanel_agent_t tmp_t:dir { add_name create getattr open read remove_name rmdir search setattr write };
+
+# Mail queue introspection/control (admin Mail Queue page): the agent spawns
+# postqueue (-j/-f) and postsuper (-d/-r). Spawning was denied under enforcing
+# (postfix_postqueue_exec_t/postfix_master_exec_t), so the queue page silently
+# rendered "queue is empty". postsuper ships labeled postfix_master_exec_t.
+# Children stay in the agent domain (no exec transitions in this policy), so
+# queue-file access needs explicit spool/socket allows too.
+allow cwhpanel_agent_t postfix_postqueue_exec_t:file { execute execute_no_trans open read getattr map };
+allow cwhpanel_agent_t postfix_postdrop_exec_t:file { execute execute_no_trans open read getattr map };
+allow cwhpanel_agent_t postfix_postqueue_t:dir { search read open getattr };
+allow cwhpanel_agent_t postfix_postqueue_t:file { read getattr open };
+allow cwhpanel_agent_t postfix_master_t:unix_stream_socket { connectto read write getattr };
+allow cwhpanel_agent_t postfix_master_t:unix_dgram_socket { sendto read write getattr };
+allow cwhpanel_agent_t postfix_public_t:dir { search read open getattr };
+allow cwhpanel_agent_t postfix_public_t:unix_stream_socket { connectto read write getattr };
+allow cwhpanel_agent_t postfix_public_t:sock_file { read write getattr };
+allow cwhpanel_agent_t postfix_public_t:unix_dgram_socket { sendto read write getattr };
+allow cwhpanel_agent_t postfix_private_t:dir { search read open getattr };
+allow cwhpanel_agent_t postfix_private_t:unix_stream_socket { connectto read write getattr };
+allow cwhpanel_agent_t postfix_private_t:sock_file { read write getattr };
+allow cwhpanel_agent_t postfix_private_t:unix_dgram_socket { sendto read write getattr };
+allow cwhpanel_agent_t postfix_var_run_t:dir { search read open getattr };
+allow cwhpanel_agent_t postfix_var_run_t:fifo_file { write getattr open read };
+
+# dnf/libdnf touches debug-symbol metadata (/usr/lib/debug, debuginfo_exec_t)
+# during repo refresh and RPM transactions; missing allows contributed to the
+# vuln.apply/updates failures ("RPM: Plugin selinux: tsm_pre failed").
+allow cwhpanel_agent_t debuginfo_exec_t:dir { search read open getattr };
+allow cwhpanel_agent_t debuginfo_exec_t:file { getattr open read map execute execute_no_trans };
+
+# sysfs symlink traversal (kernel class/block trees) during package scripts.
+allow cwhpanel_agent_t sysfs_t:lnk_file { getattr read };
+
+# Full client connectivity for package/mirror/app downloads (dnf updateinfo/
+# upgrade, node runtime installs, catalog fetches). A confined provisioning agent
+# needs generic outbound TCP/UDP; the finer-grained per-port rules (dns_port_t
+# etc.) proved insufficient — DNS lookups still failed ("Could not resolve host")
+# under enforcing even with dns_port_t sendto/name_connect allowed, while the
+# same commands worked permissive. Use the standard corenet client interfaces.
+corenet_tcp_connect_all_ports(cwhpanel_agent_t)
+corenet_udp_sendrecv_all_nodes(cwhpanel_agent_t)
+corenet_tcp_sendrecv_all_if(cwhpanel_agent_t)
+corenet_udp_sendrecv_all_if(cwhpanel_agent_t)

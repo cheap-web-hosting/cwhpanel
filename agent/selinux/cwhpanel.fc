@@ -1,0 +1,34 @@
+/home/[^/]+/public_html(/.*)?  gen_context(system_u:object_r:cwhpanel_account_t,s0)
+/home/[^/]+/www(/.*)?          gen_context(system_u:object_r:cwhpanel_account_t,s0)
+/home/[^/]+/logs(/.*)?         gen_context(system_u:object_r:cwhpanel_account_t,s0)
+/home/[^/]+/tmp(/.*)?          gen_context(system_u:object_r:cwhpanel_account_t,s0)
+/home/[^/]+/nginx(/.*)?        gen_context(system_u:object_r:cwhpanel_account_t,s0)
+
+/var/run/cwhpanel(/.*)?            gen_context(system_u:object_r:cwhpanel_agent_sock_t,s0)
+
+# SSH chroot jail skeletons. Specs cover only agent-created content — never the
+# usr/ and home/ mountpoints (bind-mounted host content keeps its own labels,
+# so a recursive relabel must never resolve those paths to this type).
+# The agent labels fresh skeletons with chcon (never restorecon -R on a live
+# jail); these specs keep full-filesystem relabels correct.
+/jail                                       gen_context(system_u:object_r:cwhpanel_jail_t,s0)
+/jail/[^/]+                                 gen_context(system_u:object_r:cwhpanel_jail_t,s0)
+/jail/[^/]+/etc(/.*)?                       gen_context(system_u:object_r:cwhpanel_jail_t,s0)
+/jail/[^/]+/dev(/.*)?                       gen_context(system_u:object_r:cwhpanel_jail_t,s0)
+/jail/[^/]+/tmp(/.*)?                       gen_context(system_u:object_r:cwhpanel_jail_t,s0)
+/jail/[^/]+/bin                             gen_context(system_u:object_r:cwhpanel_jail_t,s0)
+/jail/[^/]+/lib                             gen_context(system_u:object_r:cwhpanel_jail_t,s0)
+/jail/[^/]+/lib64                           gen_context(system_u:object_r:cwhpanel_jail_t,s0)
+/jail/[^/]+/sbin                            gen_context(system_u:object_r:cwhpanel_jail_t,s0)
+
+# Panel TLS material. The BASE policy labels ANY /etc file whose path contains
+# "hostname" as hostname_etc_t (`/etc/.*hostname.*`), which hijacks
+# /etc/cwhpanel/ssl/hostname/* and denies the agent — the agent runs `nginx -t`,
+# so every vhost write then fails "cannot load certificate ... Permission
+# denied". Explicit rules win over that regex (bitten live after a
+# `restorecon -R /etc`).
+# Exact files ONLY: the parent stays etc_t because the agent creates the
+# per-domain certificate directories under it (a cert_t parent is
+# read-only for the agent). An exact path beats the BASE regex.
+/etc/cwhpanel/ssl/hostname/fullchain.pem   gen_context(system_u:object_r:cert_t,s0)
+/etc/cwhpanel/ssl/hostname/privkey.pem     gen_context(system_u:object_r:cert_t,s0)

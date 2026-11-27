@@ -1,0 +1,139 @@
+policy_module(cwhpanel_agent, 1.0.0)
+
+############################################
+# Privileged agent domain
+#
+# The provisioning agent (cwhpanel-agent, root) is confined to its own
+# domain instead of running unconfined_service_t. It performs user/group/
+# fs/systemd/package provisioning through an operation allowlist, so the
+# domain must reach systemd unit control, the account trees, /etc, and the
+# binaries it spawns. Loaded permissive-first by setup.sh so the allow set
+# can be harvested from a full provisioning run, then flipped enforcing.
+############################################
+type cwhpanel_agent_t;
+type cwhpanel_agent_exec_t;
+domain_type(cwhpanel_agent_t)
+init_daemon_domain(cwhpanel_agent_t, cwhpanel_agent_exec_t)
+
+require {
+    type systemd_systemctl_exec_t;
+    type bin_t;
+    type usr_t;
+    type etc_t;
+    type var_run_t;
+    type var_t;
+    type home_root_t;
+    type user_home_dir_t;
+    type user_home_t;
+    type passwd_file_t;
+    type shadow_t;
+    type init_t;
+    type var_log_t;
+    type tmp_t;
+    type user_tmp_t;
+    type cwhpanel_agent_sock_t;
+    type var_spool_t;
+    type user_cron_spool_t;
+    type setsebool_exec_t;
+    type security_t;
+    type selinux_config_t;
+    type dovecot_etc_t;
+    type dovecot_var_run_t;
+    type gconf_home_t;
+    type config_home_t;
+    type spamc_home_t;
+    type proc_t;
+    attribute systemd_unit_file_type;
+    attribute can_change_object_identity;
+}
+
+allow cwhpanel_agent_t cwhpanel_agent_sock_t:dir { search read getattr add_name write open create remove_name setattr };
+allow cwhpanel_agent_t cwhpanel_agent_sock_t:sock_file { create write read unlink open getattr setattr };
+allow cwhpanel_agent_t proc_t:dir { search read getattr open };
+allow cwhpanel_agent_t self:unix_stream_socket { create connect read write bind getopt setopt accept listen getattr shutdown };
+
+allow cwhpanel_agent_t { bin_t usr_t etc_t }:file { read execute execute_no_trans getattr map open };
+allow cwhpanel_agent_t { bin_t usr_t etc_t }:dir { search read getattr open };
+allow cwhpanel_agent_t systemd_systemctl_exec_t:file entrypoint;
+
+systemd_exec_systemctl(cwhpanel_agent_t)
+init_status(cwhpanel_agent_t)
+init_start(cwhpanel_agent_t)
+init_stop(cwhpanel_agent_t)
+init_reload_services(cwhpanel_agent_t)
+init_enable_services(cwhpanel_agent_t)
+init_disable_services(cwhpanel_agent_t)
+# systemd's OWN SELinux check (selinux-access.c) uses tclass="service"
+# against the UNIT FILE's context (all *_unit_file_t share this attribute),
+# and tclass="system" against pid1 when no unit context is stored. Without
+# the unit_file_type:service allow, systemctl unit control from a confined
+# root returns "SELinux policy denies access" — this is the exact blocker
+# that previously forced reverting agent confinement.
+allow cwhpanel_agent_t systemd_unit_file_type:service { start stop reload status enable disable };
+allow cwhpanel_agent_t cwhpanel_agent_t:system { start stop reload status enable disable };
+allow cwhpanel_agent_t init_t:system { status start stop reload enable disable halt reboot };
+allow cwhpanel_agent_t init_t:service status;
+# systemctl talks to PID 1 over the private socket (/run/systemd/private) and
+# systemd's own SELinux hook authorizes the manager method against the caller.
+# Missing connectto/read/write on init_t sockets surfaces as "Call to Reboot
+# failed: Access denied" (bitten live, Oct-2026) with no audit record — pid1
+# performs the check without auditing.
+allow cwhpanel_agent_t init_t:sock_file { write getattr read };
+
+# dnf (libdnf) creates its transaction temp dirs in /tmp, which this box's
+# policy computes as user_tmp_t (proven live: AVC deny on dir create for
+# `dnf -y upgrade` from the confined agent — "Cannot create repo temporary
+# directory /tmp/libdnf.*: Permission denied"). Grant the same set as tmp_t.
+allow cwhpanel_agent_t user_tmp_t:dir { search read getattr write add_name remove_name create setattr open };
+allow cwhpanel_agent_t user_tmp_t:file { read write create unlink getattr setattr open rename append };
+allow cwhpanel_agent_t user_tmp_t:lnk_file { read create unlink getattr setattr };
+
+
+# userdel/pkill checks /proc/<pid> of every system domain for remaining
+# processes of a user being deleted. Allow the generic proc read so the
+# check never spuriously fails/races.
+allow cwhpanel_agent_t domain:dir { getattr open read search };
+allow cwhpanel_agent_t domain:file { getattr open read };
+allow cwhpanel_agent_t domain:lnk_file { getattr read };
+
+
+
+# pam_keyinit (runuser/su session) needs its own kernel keyring.
+allow cwhpanel_agent_t self:key { view read write create search link setattr };
+
+# runuser/su NSS (nss_systemd) resolves users via the systemd-userdbd socket.
+
+
+
+# PAM / journal session writes from runuser/su (revealed by dontaudit off).
+allow cwhpanel_agent_t self:unix_stream_socket { create write read bind getopt setopt connect getattr shutdown listen accept };
+
+# cron spool + new-user home creation (useradd/ssh-jail fixture)
+allow cwhpanel_agent_t var_spool_t:dir { search read getattr open };
+allow cwhpanel_agent_t user_cron_spool_t:dir { search read getattr open add_name write remove_name create setattr };
+allow cwhpanel_agent_t user_cron_spool_t:file { read write create getattr setattr unlink open append rename };
+
+# Constraint: create/relabel across SELinux users (system_u agent -> unconfined_u
+# home objects) requires can_change_object_identity (u1 != u2).
+typeattribute cwhpanel_agent_t can_change_object_identity;
+
+# setsebool (ssh_chroot_rw_homedirs) from the confined agent: exec in
+# place (setsebool_exec_t) + kernel security-class setbool.
+allow cwhpanel_agent_t self:security setbool;
+
+# selinuxfs (setsebool booleans) + /etc/selinux config reads (useradd/usermod).
+allow cwhpanel_agent_t security_t:dir { search read getattr open };
+allow cwhpanel_agent_t selinux_config_t:file { read getattr open };
+allow cwhpanel_agent_t selinux_config_t:dir { search read getattr open };
+allow cwhpanel_agent_t selinux_config_t:dir { write add_name create remove_name rename };
+allow cwhpanel_agent_t selinux_config_t:file { create write rename unlink open getattr setattr };
+
+# getifaddrs (postmap / network tools) needs rtnetlink.
+allow cwhpanel_agent_t self:netlink_socket { create bind read write getattr setopt sendto };
+
+# dovecot/sieve tooling reads
+allow cwhpanel_agent_t dovecot_var_run_t:file { read getattr open };
+# du/disk over account home dotdirs
+allow cwhpanel_agent_t gconf_home_t:dir { search read getattr open };
+allow cwhpanel_agent_t config_home_t:dir { search read getattr open };
+allow cwhpanel_agent_t spamc_home_t:dir { search read getattr open };
