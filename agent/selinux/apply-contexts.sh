@@ -42,7 +42,9 @@ PORT_TYPE='cwhpanel_worker_port_t'
 PORT_RANGE='12000-12999'
 APP_PORT_TYPE='cwhpanel_app_port_t'
 APP_PORT_RANGE='22000-22999'
-MODULES=(cwhpanel cwhpanel_agent cwhpanel_agent_allow)
+# Unload dependants first: removing the base module while the agent
+# allow-module is loaded fails ("module in use").
+MODULES_DEP=(cwhpanel_agent_allow cwhpanel_agent cwhpanel)
 
 apply() {
   echo "==> Confining the privileged agent..."
@@ -117,13 +119,13 @@ unload() {
   echo "==> Removing app port label..."
   semanage port -d -t "$APP_PORT_TYPE" -p tcp "$APP_PORT_RANGE" 2>/dev/null || true
   echo "==> Removing policy modules..."
-  for m in "${MODULES[@]}"; do
+  for m in "${MODULES_DEP[@]}"; do
     semodule -r "$m" 2>/dev/null || true
   done
   semanage fcontext -d '/usr/local/sbin/cwhpanel-agent' 2>/dev/null || true
 
   local remnants=0
-  for m in "${MODULES[@]}"; do
+  for m in "${MODULES_DEP[@]}"; do
     semodule -l 2>/dev/null | grep -qx "$m" && { echo "leftover policy module: $m"; remnants=1; } || true
   done
   semanage fcontext -l 2>/dev/null | grep -F "${name}_" && remnants=1 || true
