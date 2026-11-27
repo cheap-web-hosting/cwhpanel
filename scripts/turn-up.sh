@@ -810,11 +810,18 @@ fi
 # detected public IP; switch to https://your-domain once TLS is in front.
 if ! grep -qE '^APP_URL=https?://[^/]+' "$here/.env" || grep -qE '^APP_URL=http://127\.0\.0\.1' "$here/.env"; then
     if [[ "${DETECTED_IP:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        if grep -qE '^APP_URL=' "$here/.env"; then
-            sed -i "s#^APP_URL=.*#APP_URL=http://$DETECTED_IP/#" "$here/.env"
-        else
-            echo "APP_URL=http://$DETECTED_IP/" >> "$here/.env"
-        fi
+        # BOTH env files: the live tree's .env is what the panel reads, and the
+        # final step copies it back over the source .env. Writing only the
+        # source value made every non-TLS install end up with the dev default
+        # (absolute links pointing at 127.0.0.1:8081).
+        for envf in "$here/.env" "$LIVE_DIR/.env"; do
+            [ -f "$envf" ] || continue
+            if grep -qE '^APP_URL=' "$envf"; then
+                sed -i "s#^APP_URL=.*#APP_URL=http://$DETECTED_IP/#" "$envf"
+            else
+                echo "APP_URL=http://$DETECTED_IP/" >> "$envf"
+            fi
+        done
         step "set APP_URL to http://$DETECTED_IP/"
     else
         step "WARNING: APP_URL not set; links will fall back to 127.0.0.1:8080"
@@ -1255,7 +1262,22 @@ if [ -f /etc/nginx/conf.d/panel.conf ] && [ "$ADMIN_PORT_V" != "80" ] && [ "$ADM
 fi
 
 # ---------------------------------------------------------------------------
+# The live env is authoritative for generated secrets, but a key that only the
+# source env received (APP_URL is filled before the live env is synced) would be
+# lost by the copy-back below. Converge APP_URL into the live env first.
+_src_url="$(grep -E '^APP_URL=' "$here/.env" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+_live_url="$(grep -E '^APP_URL=' "$LIVE_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+if [ -n "$_src_url" ] && { [ -z "$_live_url" ] || [[ "$_live_url" == http://127.0.0.1* || "$_live_url" == http://localhost* ]]; }; then
+    if grep -qE '^APP_URL=' "$LIVE_DIR/.env" 2>/dev/null; then
+        sed -i "s#^APP_URL=.*#APP_URL=${_src_url}#" "$LIVE_DIR/.env"
+    else
+        echo "APP_URL=${_src_url}" >> "$LIVE_DIR/.env"
+    fi
+fi
 FINAL_URL="$(env_get APP_URL "http://localhost/")"
+if [[ "$FINAL_URL" == http://127.0.0.1* || "$FINAL_URL" == http://localhost* ]]; then
+    warn "APP_URL is the dev default ($FINAL_URL): absolute links point at localhost. Set APP_URL in /opt/cwhpanel/.env to this panel's public URL."
+fi
 [ "$here" = "$LIVE_DIR" ] || cp -a "$LIVE_DIR/.env" "$here/.env" 2>/dev/null || true
 cat <<EOF
 
