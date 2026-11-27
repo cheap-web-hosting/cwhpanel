@@ -119,8 +119,27 @@ unload() {
   echo "==> Removing app port label..."
   semanage port -d -t "$APP_PORT_TYPE" -p tcp "$APP_PORT_RANGE" 2>/dev/null || true
   echo "==> Removing policy modules..."
+  # semodule can report success ("Removing last <mod> module") while the module
+  # is still installed afterwards — observed on a fresh host where only the
+  # first of three removals took effect. Remove each module until semodule -l
+  # no longer lists it, retrying at its explicit priority.
+  remove_module() {
+    local m="$1" i prio
+    for i in 1 2 3 4; do
+      semodule -l 2>/dev/null | grep -qx "$m" || return 0
+      semodule -r "$m" >/dev/null 2>&1 || true
+      semodule -l 2>/dev/null | grep -qx "$m" || return 0
+      prio="$(semodule --list-modules=full 2>/dev/null | awk -v m="$m" '$2 == m {print $1; exit}')"
+      if [ -n "$prio" ]; then
+        semodule -X "$prio" -r "$m" >/dev/null 2>&1 || true
+      fi
+      sleep 1
+    done
+    semodule -l 2>/dev/null | grep -qx "$m" && return 1
+    return 0
+  }
   for m in "${MODULES_DEP[@]}"; do
-    semodule -r "$m" 2>/dev/null || true
+    remove_module "$m" || echo "could not remove policy module: $m" >&2
   done
   semanage fcontext -d '/usr/local/sbin/cwhpanel-agent' 2>/dev/null || true
 
