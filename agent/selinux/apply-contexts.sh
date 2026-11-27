@@ -38,6 +38,7 @@ JAIL_PATHS=(
 )
 
 SOCK_PATH='/var/run/cwhpanel(/.*)?'
+AGENT_EXEC_PATH='/usr/local/sbin/cwhpanel-agent'
 PORT_TYPE='cwhpanel_worker_port_t'
 PORT_RANGE='12000-12999'
 APP_PORT_TYPE='cwhpanel_app_port_t'
@@ -106,14 +107,21 @@ apply() {
 }
 
 unload() {
+  # File contexts defined by the policy modules only become deletable once the
+  # modules are gone, so this runs twice: before (removes genuinely local
+  # overrides) and after the module removal (removes the module-defined ones).
+  delete_fcontexts() {
+    for p in "${PATHS[@]}"; do
+      semanage fcontext -d "$p" >/dev/null 2>&1 || true
+    done
+    for p in "${JAIL_PATHS[@]}"; do
+      semanage fcontext -d "$p" >/dev/null 2>&1 || true
+    done
+    semanage fcontext -d "$SOCK_PATH" >/dev/null 2>&1 || true
+    semanage fcontext -d "$AGENT_EXEC_PATH" >/dev/null 2>&1 || true
+  }
   echo "==> Removing local fcontext rules..."
-  for p in "${PATHS[@]}"; do
-    semanage fcontext -d "$p" 2>/dev/null || true
-  done
-  for p in "${JAIL_PATHS[@]}"; do
-    semanage fcontext -d "$p" 2>/dev/null || true
-  done
-  semanage fcontext -d "$SOCK_PATH" 2>/dev/null || true
+  delete_fcontexts
   echo "==> Removing worker port label..."
   semanage port -d -t "$PORT_TYPE" -p tcp "$PORT_RANGE" 2>/dev/null || true
   echo "==> Removing app port label..."
@@ -169,7 +177,8 @@ unload() {
       echo "could not remove policy module: $m" >&2
     fi
   done
-  semanage fcontext -d '/usr/local/sbin/cwhpanel-agent' 2>/dev/null || true
+  echo "==> Removing module-defined fcontext rules..."
+  delete_fcontexts
 
   local remnants=0
   for m in "${MODULES_DEP[@]}"; do
