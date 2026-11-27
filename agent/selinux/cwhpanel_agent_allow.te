@@ -115,6 +115,10 @@ require {
 	type system_conf_t;
 	type proc_t;
 	type sysctl_net_t;
+	# Quota lookups (/proc/sys/fs/quota) and the backing block device reads
+	# that setquota performs before issuing quotactl.
+	type sysctl_fs_t;
+	type fixed_disk_device_t;
 	type iptables_exec_t;
 	type kernel_t;
 	type var_run_t;
@@ -214,6 +218,17 @@ allow cwhpanel_agent_t file_context_t:file { create getattr map open read rename
 
 #!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
 allow cwhpanel_agent_t fs_t:filesystem { getattr remount unmount };
+
+# User/group disk quotas: setquota discovers the file system's quota state via
+# /proc/sys/fs/quota and the backing block device, then issues the quotactl
+# calls (quotaget/quotamod). Without these allows it silently reports
+# "Mountpoint (or device) / not found or has no quota enabled" even when quotas
+# ARE enabled, so per-account disk/inode limits were never applied (the failure
+# looks like "host has no quota", not like a permission problem).
+allow cwhpanel_agent_t fs_t:filesystem { quotaget quotamod };
+allow cwhpanel_agent_t sysctl_fs_t:dir { search getattr read open };
+allow cwhpanel_agent_t sysctl_fs_t:file { getattr open read };
+allow cwhpanel_agent_t fixed_disk_device_t:blk_file getattr;
 allow cwhpanel_agent_t ftpd_unit_file_t:file getattr;
 
 #!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
