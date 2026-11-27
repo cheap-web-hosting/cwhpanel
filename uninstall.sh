@@ -572,6 +572,14 @@ if [ -x "$HERE/agent/selinux/setup.sh" ]; then
     else
         warn "SELinux unload left remnants (see above); re-run agent/selinux/setup.sh --unload manually"
     fi
+elif [ -f "$HERE/agent/selinux/apply-contexts.sh" ]; then
+    if [ "$DRY" = "1" ]; then
+        step "[dry-run] would run agent/selinux/apply-contexts.sh --unload"
+    elif bash "$HERE/agent/selinux/apply-contexts.sh" --unload; then
+        step "SELinux modules + fcontexts + port labels removed"
+    else
+        warn "SELinux unload left remnants (see above); re-run agent/selinux/apply-contexts.sh --unload manually"
+    fi
 else
     run semodule -r cwhpanel
 fi
