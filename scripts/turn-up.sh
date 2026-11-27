@@ -1105,11 +1105,20 @@ fi
 # -- nginx vhost for the panel (render once; a hand-edited vhost is kept).
 if [ ! -f /etc/nginx/conf.d/panel.conf ] || grep -q '/path/to/cwhpanel' /etc/nginx/conf.d/panel.conf; then
     [ -f /etc/nginx/conf.d/panel.conf ] && cp -a /etc/nginx/conf.d/panel.conf "/etc/nginx/conf.d/panel.conf.bak-$(date +%Y%m%d-%H%M%S)" || true
+    # Answer for the server IP too when the canonical host is a FQDN: the box is
+    # reachable by IP before DNS propagates (otherwise a hostname-only vhost
+    # 404s every IP request, which looks like "the panel is broken").
+    PANEL_SERVER_NAMES="$PANEL_HOST"
+    if [[ "$PANEL_HOST" == *.* && "$PANEL_HOST" =~ [a-zA-Z] ]] \
+        && [[ "${DETECTED_IP:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+        && [ "$PANEL_HOST" != "$DETECTED_IP" ]; then
+        PANEL_SERVER_NAMES="$PANEL_HOST $DETECTED_IP"
+    fi
     sed -e "s#root /path/to/cwhpanel/public;#root ${LIVE_DIR}/public;#" \
-        -e "s#server_name _;#server_name ${PANEL_HOST};#" \
+        -e "s#server_name _;#server_name ${PANEL_SERVER_NAMES};#" \
         -e "s#\${PANEL_HOST}#${PANEL_HOST}#g" \
         "$here/deploy/nginx-panel.conf.example" > /etc/nginx/conf.d/panel.conf
-    step "nginx panel vhost installed (server_name $PANEL_HOST)"
+    step "nginx panel vhost installed (server_name $PANEL_SERVER_NAMES)"
 fi
 patch_panel_static && step "static-asset expires applied to panel vhost"
 # The stock welcome-page vhost would collide on `default_server` (emerg).
@@ -1155,10 +1164,18 @@ if [ "$PANEL_HOST" != "_" ]; then
         set_app_url "$here/.env" "http://${PANEL_HOST}/"
         set_app_url "$LIVE_DIR/.env" "http://${PANEL_HOST}/"
         step "APP_URL set to http://${PANEL_HOST}/ (step 7b upgrades to https)"
-    elif ! grep -qE '^APP_URL=https?://[^/]+' "$here/.env" || grep -qE '^APP_URL=http://127\.0\.0\.1' "$here/.env"; then
-        set_app_url "$here/.env" "http://${PANEL_HOST}/"
-        set_app_url "$LIVE_DIR/.env" "http://${PANEL_HOST}/"
-        step "APP_URL set to http://${PANEL_HOST}/"
+    else
+        # The rendered vhost answers for PANEL_HOST, so an automatically derived
+        # APP_URL (absent, loopback, or the bare detected IP) must follow it — an
+        # IP APP_URL against a hostname vhost makes every absolute link a 404.
+        CUR_URL_HOST="$(grep -E '^APP_URL=' "$here/.env" 2>/dev/null | tail -1 | cut -d= -f2- \
+            | sed -E 's#^https?://##; s#/.*##; s#:[0-9]+$##' || true)"
+        if [ -z "$CUR_URL_HOST" ] || [ "$CUR_URL_HOST" = "127.0.0.1" ] || [ "$CUR_URL_HOST" = "localhost" ] \
+            || { [ -n "${DETECTED_IP:-}" ] && [ "$CUR_URL_HOST" = "$DETECTED_IP" ]; }; then
+            set_app_url "$here/.env" "http://${PANEL_HOST}/"
+            set_app_url "$LIVE_DIR/.env" "http://${PANEL_HOST}/"
+            step "APP_URL follows the panel vhost: http://${PANEL_HOST}/"
+        fi
     fi
 fi
 chmod 600 "$here/.env" 2>/dev/null || true
