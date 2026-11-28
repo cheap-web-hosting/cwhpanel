@@ -110,6 +110,8 @@ require {
 	type var_log_t;
 	type journalctl_exec_t;
 	type hostname_exec_t;
+	type init_var_lib_t;
+	type dovecot_t;
 	type bin_t;
 	type cwhpanel_agent_sock_t;
 	type etc_t;
@@ -633,3 +635,8 @@ allow cwhpanel_agent_t ssh_home_t:file relabelfrom;
 # sievec loads the dovecot configuration through the config socket; the
 # compile succeeded but the socket write was denied (noise / fragile path).
 allow cwhpanel_agent_t dovecot_var_run_t:sock_file { getattr read write };
+
+# linger file removal (user.delete) needs to traverse /var/lib/systemd
+allow cwhpanel_agent_t init_var_lib_t:dir search;
+# sievec reads the dovecot config through /run/dovecot/config (dovecot_t peer)
+allow cwhpanel_agent_t dovecot_t:unix_stream_socket connectto;
