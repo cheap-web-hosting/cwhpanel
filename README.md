@@ -1,5 +1,9 @@
 # Getting Started with CWH Control Panel — Free Edition
 
+![Status: early release (beta)](https://img.shields.io/badge/status-early%20release%20(beta)-orange)
+![Latest release](https://img.shields.io/github/v/release/cheap-web-hosting/cwhpanel?label=release)
+![License: proprietary, free to use](https://img.shields.io/badge/license-proprietary%20(free%20to%20use)-blue)
+
 A complete, beginner-friendly guide that takes you from a **blank Rocky Linux 9
 server** to a **working hosting panel** with websites, mail, DNS, databases and
 SSL — and then shows you how to use it day to day.
@@ -7,6 +11,29 @@ SSL — and then shows you how to use it day to day.
 > **Who this is for:** someone who has never installed a hosting panel before.
 > Every command is copy-pasteable, every screen is shown, and nothing is assumed
 > beyond basic SSH knowledge.
+
+> ### ⚠️ Early release (beta)
+>
+> This is an **early public build**, published for evaluation and testing — not
+> a finished product. Treat it as beta software.
+>
+> - **Do not** put real customer data on it before you have reviewed the
+>   security model yourself and have restorable backups.
+> - Start on a **disposable server (VM)**: the installer is one command and a
+>   wipe is one command, so experiments are cheap.
+> - The code has **not yet had an independent end-to-end audit**. A source
+>   review in November 2026 found issues; the release-blocking ones are fixed in
+>   1.1.19–1.1.21 (SQL restore isolation, file-manager symlink race, updater TLS
+>   fallback, SSH jail fail-open, backup truncation). Remaining work is tracked
+>   in the project roadmap.
+> - Behaviour can change between releases (for example: customer database
+>   restores are administrator-only until the privilege-separated importer
+>   ships). Read the release notes before upgrading.
+> - Found a bug or a security issue? Open an issue on GitHub — please do not
+>   post exploit details publicly.
+>
+> Current release: **1.1.21** · tested on Rocky Linux 9.7 and 9.9 with SELinux
+> enforcing.
 
 ---
 
@@ -72,11 +99,35 @@ CWH Control Panel (Free Edition) includes the complete hosting feature set:
 - cron jobs with captured output
 - the App Installer (90+ applications)
 - multi-PHP (7.4–8.5), per-account isolation, ModSecurity WAF, firewall,
-  ClamAV antivirus and fail2ban
+  ClamAV file scanning and fail2ban
 - resource limits: disk/inodes, bandwidth, CPU, RAM, IOPS and process caps
 
 Everything described in this guide is available in this edition and covered by
 its test suite.
+
+### Status
+
+| | |
+|---|---|
+| Maturity | **early public beta** — features work and are tested, but the project is young and the API/behaviour can change between releases |
+| Current release | 1.1.21 (runtime bundle, signed) |
+| Tested on | Rocky Linux 9.7 and 9.9, SELinux enforcing, fresh install + full regression |
+| Isolation model | per-account system user, systemd cgroup limits (CPU/RAM/IO/IOPS), disk/inode quotas, SELinux MCS categories, pooled PHP-FPM |
+| Not included | SpamAssassin anti-spam, uptime watchdog, threat protection, CVE patching, bot shield, per-account IPv6 and per-account PHP masters (paid edition) |
+| Support | community, best effort, through GitHub issues |
+
+Known limitations in this beta, so nobody is surprised later:
+
+- **Mail is not virus-scanned.** ClamAV runs and the Antivirus page scans account
+  files on demand, but Postfix has no antivirus milter yet (tracked).
+- **Customer database restores are administrator-only** until the
+  privilege-separated SQL importer ships (files and mail restore normally).
+- **No anti-spam** in the free edition (SpamAssassin is a paid-edition module).
+
+**Before you rely on it:** install it on a test server, create a throwaway
+account, install an app, restore a backup, and only then decide. Keep a snapshot
+of the VM so you can roll back.
+
 
 ## 3. Prerequisites
 
