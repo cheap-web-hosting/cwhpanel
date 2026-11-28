@@ -38,32 +38,60 @@ class AppNetnsService
         return '10.213.' . $hi . '.' . ($base + 2);
     }
 
-    /** Create/converge the account namespace (best-effort, never fatal). */
+    /**
+     * Create/converge the account namespace and verify it is actually up.
+     *
+     * Isolation is a security property (audit #20): when the feature is
+     * enabled, a failure MUST abort the app operation. Falling back to the
+     * shared host network would let the app reach every other account's
+     * loopback services. The admin turns the feature off explicitly to choose
+     * shared networking.
+     *
+     * @throws \RuntimeException when the namespace cannot be established
+     */
     public function ensure(array $account): bool
     {
         if (!$this->enabled()) {
             return false;
         }
         $username = (string) ($account['username'] ?? '');
-        if ($username === '') {
-            return false;
-        }
-        // Callers may pass a partial account array (tests, freshly built rows):
-        // an undefined 'id' used to raise a PHP warning on every app start.
         $accountId = (int) ($account['id'] ?? 0);
-        if ($accountId <= 0) {
-            return false;
+        if ($username === '' || $accountId <= 0) {
+            throw new \RuntimeException(
+                'Network namespace isolation is enabled, but the account has no persisted id; refusing to start without isolation.'
+            );
         }
-        try {
-            $r = app('provisioning')->execute('netns.account.ensure', [
-                'account' => $username,
-                'id' => (string) $accountId,
-            ]);
-            return ($r['status'] ?? '') === 'success';
-        } catch (\Throwable $e) {
-            app('logger')->warning("app netns ensure failed for {$username}: " . $e->getMessage());
-            return false;
+        // Let agent/provisioning errors propagate: the caller must not start
+        // the app on the shared host network.
+        $r = app('provisioning')->execute('netns.account.ensure', [
+            'account' => $username,
+            'id' => (string) $accountId,
+        ]);
+        if (($r['status'] ?? '') !== 'success') {
+            throw new \RuntimeException(
+                'Network namespace setup failed for ' . $username
+                . ' (' . (string) ($r['status'] ?? 'error') . ')'
+                . (trim((string) ($r['output'] ?? '')) !== '' ? ': ' . trim((string) $r['output']) : '')
+            );
         }
+        if (!$this->active($account)) {
+            throw new \RuntimeException('Network namespace for ' . $username . ' did not come up.');
+        }
+        return true;
+    }
+
+    /**
+     * The bind host an app must use: the account's namespace address when
+     * isolation is enabled (verified), or loopback when the administrator
+     * explicitly disabled the feature. Throws instead of falling back.
+     */
+    public function ensureHost(array $account): string
+    {
+        if (!$this->enabled()) {
+            return '127.0.0.1';
+        }
+        $this->ensure($account);
+        return self::addressFor((int) $account['id']);
     }
 
     public function destroy(array $account): void

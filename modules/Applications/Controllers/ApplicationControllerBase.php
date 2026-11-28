@@ -291,12 +291,21 @@ abstract class ApplicationControllerBase
             return Response::redirect($meta['base']);
         }
         $account = $this->accountForApp($app);
-        $ok = $account ? app(AppService::class)->start($account, $app, $this->asAdmin()) : false;
+        $startError = null;
+        try {
+            $ok = $account ? app(AppService::class)->start($account, $app, $this->asAdmin()) : false;
+        } catch (\Throwable $e) {
+            $ok = false;
+            $startError = $e->getMessage();
+        }
         app('db')->update('applications', ['status' => $ok ? 'running' : 'stopped', 'updated_at' => date('Y-m-d H:i:s')], '`id`=?', [$id]);
         if ($this->asAdmin()) {
             $this->auditControl($ok ? 'app.started' : 'app.start.failed', $id);
         }
-        app('session')->flash($ok ? 'success' : 'error', $ok ? 'Application started.' : 'Application failed to start.');
+        app('session')->flash(
+            $ok ? 'success' : 'error',
+            $ok ? 'Application started.' : 'Application failed to start' . ($startError ? ': ' . $startError : '.')
+        );
         return Response::redirect($meta['base'] . '/' . $id);
     }
 
@@ -328,6 +337,7 @@ abstract class ApplicationControllerBase
         }
         $account = $this->accountForApp($app);
         $ok = false;
+        $startError = null;
         if ($account) {
             try {
                 app(AppService::class)->stop($account, $app);
@@ -335,13 +345,21 @@ abstract class ApplicationControllerBase
                 app('logger')->warning('App stop before restart failed: ' . $e->getMessage());
             }
             usleep(300000);
-            $ok = app(AppService::class)->start($account, $app, $this->asAdmin());
+            try {
+                $ok = app(AppService::class)->start($account, $app, $this->asAdmin());
+            } catch (\Throwable $e) {
+                $ok = false;
+                $startError = $e->getMessage();
+            }
         }
         app('db')->update('applications', ['status' => $ok ? 'running' : 'stopped', 'updated_at' => date('Y-m-d H:i:s')], '`id`=?', [$id]);
         if ($this->asAdmin()) {
             $this->auditControl('app.restarted', $id);
         }
-        app('session')->flash($ok ? 'success' : 'error', $ok ? 'Application restarted.' : 'Application failed to restart.');
+        app('session')->flash(
+            $ok ? 'success' : 'error',
+            $ok ? 'Application restarted.' : 'Application failed to restart' . ($startError ? ': ' . $startError : '.')
+        );
         return Response::redirect($meta['base'] . '/' . $id);
     }
 

@@ -148,15 +148,9 @@ class AppService
         // host. Under L-14 app-netns the bind host is the account's namespace
         // address (so the app is reachable from the host at 10.213.x.y and
         // from no other account); otherwise loopback.
-        $bindHost = '127.0.0.1';
-        try {
-            $netns = app(\Modules\Network\Services\AppNetnsService::class);
-            if ($netns->enabled() && $netns->ensure($account)) {
-                $bindHost = \Modules\Network\Services\AppNetnsService::addressFor((int) ($account['id'] ?? 0));
-            }
-        } catch (\Throwable $e) {
-            app('logger')->warning('app netns ensure failed for ' . ($account['username'] ?? '?') . ' (launcher): ' . $e->getMessage());
-        }
+        // Fail closed: when app-network isolation is enabled the launcher may
+        // only be written with the namespace address (audit #20).
+        $bindHost = app(\Modules\Network\Services\AppNetnsService::class)->ensureHost($account);
         $sub = function (string $s) use ($port, $bindHost): string {
             return str_replace(['{PORT}', '{HOST}'], [$port, $bindHost], $s);
         };
@@ -367,7 +361,7 @@ class AppService
      */
     public static function resolveNode(string $major): array
     {
-        if (!in_array($major, ['20', '22'], true)) {
+        if (!in_array($major, ['20', '22', '26'], true)) {
             throw new \RuntimeException('Unsupported Node major.');
         }
         $ctx = stream_context_create(['http' => ['timeout' => 20]]);
@@ -379,13 +373,19 @@ class AppService
         $exact = null;
         foreach ($rows as $row) {
             $ver = ltrim((string) ($row['version'] ?? ''), 'v');
-            if (!empty($row['lts']) && str_starts_with($ver, $major . '.')) {
-                $exact = $ver;
-                break;
+            if (!preg_match('/^' . preg_quote($major, '/') . '\.\d+\.\d+$/', $ver)) {
+                continue;
             }
+            // 20/22 are LTS-only; 26 is the primary line and may be a stable
+            // non-LTS release. The index is newest-first.
+            if ($major !== '26' && empty($row['lts'])) {
+                continue;
+            }
+            $exact = $ver;
+            break;
         }
-        if ($exact === null || substr_count($exact, '.') !== 2) {
-            throw new \RuntimeException('No LTS release found for Node ' . $major . '.');
+        if ($exact === null) {
+            throw new \RuntimeException('No stable release found for Node ' . $major . '.');
         }
         $sums = @file_get_contents("https://nodejs.org/dist/v{$exact}/SHASUMS256.txt", false, $ctx);
         if (!is_string($sums) || !preg_match('/^([a-f0-9]{64})\s+node-v' . preg_quote($exact, '/') . '-linux-x64\.tar\.xz$/m', $sums, $m)) {
@@ -496,17 +496,12 @@ class AppService
         // L-14: when app network namespaces are enabled, join the account's
         // namespace and bind the app to its namespace address so the host-side
         // nginx can proxy to it while no other account can reach it.
-        $netnsOn = false;
-        $hostBind = '127.0.0.1';
-        try {
-            $netns = app(\Modules\Network\Services\AppNetnsService::class);
-            if ($netns->enabled() && $netns->ensure($account)) {
-                $netnsOn = true;
-                $hostBind = \Modules\Network\Services\AppNetnsService::addressFor((int) $account['id']);
-                $args['netns'] = '1';
-            }
-        } catch (\Throwable $e) {
-            app('logger')->warning('app netns ensure failed for ' . $account['username'] . ': ' . $e->getMessage());
+        // Fail closed: isolation enabled means the app joins its verified
+        // namespace or does not start (audit #20).
+        $netns = app(\Modules\Network\Services\AppNetnsService::class);
+        $hostBind = $netns->ensureHost($account);
+        if ($netns->enabled()) {
+            $args['netns'] = '1';
         }
 
         // Reverse-proxied apps learn their port (and bind host) the
@@ -517,7 +512,6 @@ class AppService
             $env[] = 'PORT=' . (int) $app['port'];
             $env[] = 'HOST=' . $hostBind;
         }
-        unset($netnsOn);
         foreach (preg_split('/[\r\n,]+/', (string) ($app['env'] ?? '')) as $line) {
             $line = trim($line);
             // PORT/HOST are auto-managed above (and rejected by the env

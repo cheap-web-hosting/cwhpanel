@@ -3,14 +3,14 @@
 declare(strict_types=1);
 
 /**
- * Install the side-by-side Node.js runtimes the panel offers (20 / 22 LTS).
+ * Install the Node.js runtimes the panel offers (primary 26 + 20 / 22 LTS).
  *
- * The primary runtime (26) is installed by turn-up as real files under
- * /usr/local. Node 20/22 live under /opt/node-<major> and are normally
- * installed from Admin → Runtimes; a fresh box does not have them, so every
- * app that selects one fails with "node runtime is not installed" until an
- * administrator clicks install. turn-up calls this (best effort) so the
- * advertised runtime matrix works out of the box.
+ * Node 26 is the primary runtime and lives as real files under /usr/local;
+ * 20/22 live under /opt/node-<major>. A fresh Rocky box only ships the distro
+ * nodejs package (16), so without this every Node app fails with "node
+ * runtime is not installed" until an administrator clicks install. turn-up
+ * calls this (best effort) so the advertised runtime matrix works out of the
+ * box.
  *
  * Usage: php scripts/install-app-runtimes.php [--quiet]
  */
@@ -32,7 +32,8 @@ $installed = $svc->installedRuntimes();
 $have = $installed['node'] ?? [];
 
 $failed = 0;
-foreach (['20', '22'] as $major) {
+// 26 first: it is the default runtime for new Node apps.
+foreach (['26', '20', '22'] as $major) {
     if (in_array($major, $have, true)) {
         $say("node {$major}: already installed");
         continue;

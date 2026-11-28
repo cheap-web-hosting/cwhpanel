@@ -179,15 +179,9 @@ trait AppInstallTrait
         // enabled (same rule as writeLauncher): seed files that bind (app.js
         // templates, jupyter config, gitea/forgejo app.ini) must listen on
         // the namespace address so the host-side nginx can proxy to them.
-        $bindHost = '127.0.0.1';
-        try {
-            $netns = app(\Modules\Network\Services\AppNetnsService::class);
-            if ($netns->enabled() && $netns->ensure($account)) {
-                $bindHost = \Modules\Network\Services\AppNetnsService::addressFor((int) ($account['id'] ?? 0));
-            }
-        } catch (\Throwable $e) {
-            app('logger')->warning('app netns ensure failed for ' . ($account['username'] ?? '?') . ' (seed files): ' . $e->getMessage());
-        }
+        // Fail closed (audit #20): seed configs that bind must use the
+        // verified namespace address, never a loopback fallback.
+        $bindHost = app(\Modules\Network\Services\AppNetnsService::class)->ensureHost($account);
         $seeds = $manifest['app']['seed_files'] ?? [];
         if (is_array($seeds)) {
             $files = app(\Modules\Files\Services\FileService::class);

@@ -13,7 +13,7 @@ $appNetns = $appNetns ?? false;
   <div class="panel-header"><h2 class="panel-title">Dedicated IPv4 <?= $enabled ? '<span class="status status-active">Enabled</span>' : '<span class="status status-disabled">Disabled</span>' ?></h2></div>
   <form method="post" action="<?= e(url('admin/network/settings')) ?>" class="form-stack" style="padding:16px"><?= csrf_field() ?>
     <label class="check"><input type="checkbox" name="enabled" value="1" <?= $enabled ? 'checked' : '' ?>> <span>Enable the dedicated IPv4 pool (per-website assignments)</span></label>
-    <label class="check"><input type="checkbox" name="app_netns" value="1" <?= $appNetns ? 'checked' : '' ?>> <span>Isolate each account's applications in their own network namespace (blocks app-to-app access; requires an app restart)</span></label>
+    <label class="check"><input type="checkbox" name="app_netns" value="1" <?= $appNetns ? 'checked' : '' ?>> <span>Isolate each account's applications in their own network namespace (blocks app-to-app access; requires an app restart; app starts fail closed if the namespace cannot be created)</span></label>
     <p class="field-help">Off = every website shares <code><?= e($sharedIp !== '' ? $sharedIp : 'the panel IP') ?></code>. When on, an address from the pool below can be assigned to individual websites, and the vhost gets an extra <code>listen</code> for it.</p>
     <p class="field-help"><strong>Note:</strong> per-account IPv6 is not included in this edition. The host itself stays dual-stack (its own <code>[::]</code> listeners and AAAA records are unaffected); accounts are never assigned a dedicated IPv6 address.</p>
     <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
