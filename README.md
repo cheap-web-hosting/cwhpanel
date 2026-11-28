@@ -122,8 +122,9 @@ Known limitations in this beta, so nobody is surprised later:
 - **Database restores are imported as the account's own database user**
   (never as the database superuser), so a dump can only ever touch its own
   schema. The importer temporarily rotates that user's password and restores
-  it byte-exactly; a connection that reconnects during the restore can fail
-  once. Dumps with an unsupported `DEFINER`/`DELIMITER` form are refused.
+  it byte-exactly (an interrupted restore is recovered when the agent starts);
+  a connection that reconnects during the restore can fail once. Dumps with an
+  unsupported `DEFINER`/`DELIMITER` form are refused.
 - **No anti-spam** in the free edition (SpamAssassin is a paid-edition module).
 
 **Before you rely on it:** install it on a test server, create a throwaway
