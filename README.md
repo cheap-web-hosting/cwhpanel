@@ -23,7 +23,7 @@ SSL — and then shows you how to use it day to day.
 >   wipe is one command, so experiments are cheap.
 > - The code has **not yet had an independent end-to-end audit**. A source
 >   review in November 2026 found issues; the release-blocking ones are fixed in
->   1.1.19–1.1.21 (SQL restore isolation, file-manager symlink race, updater TLS
+>   1.1.19–1.1.24 (SQL restore isolation, file-manager symlink race, updater TLS
 >   fallback, SSH jail fail-open, backup truncation). Remaining work is tracked
 >   in the project roadmap.
 > - Behaviour can change between releases. Read the release notes before
