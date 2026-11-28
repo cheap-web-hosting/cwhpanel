@@ -266,6 +266,9 @@ class BackupService
         }
     }
 
+    /** Last scoped-import refusal reason (shown to the operator, logged too). */
+    public ?string $lastDbRestoreError = null;
+
     public function restore(int $accountId, string $name): bool
     {
         $row = $this->account($accountId);
@@ -379,22 +382,31 @@ class BackupService
 
     public function dbRestore(string $database, string $name): bool
     {
+        $this->lastDbRestoreError = null;
         $useName = $name;
         $tmp = null;
         try {
+            $owner = $this->databaseOwner($database);
+            if ($owner === null) {
+                throw new \RuntimeException(
+                    'no database user is recorded for ' . $database
+                    . '; refusing to import without a schema-scoped identity'
+                );
+            }
             $useName = $this->openForRestore(self::BACKUP_DIR, $name, '.sql');
             $tmp = $useName !== $name ? self::BACKUP_DIR . '/' . $useName . '.sql' : null;
-            // Fail-closed twin of the agent's dump validation: a customer S3
-            // remote can supply any SQL, and the import runs as the root DB
-            // user — so refuse privilege-management / cross-schema / client-
-            // command content before the agent ever sees it.
+            // Cheap fail-closed pre-check (the agent re-validates and
+            // sanitizes authoritatively). The import itself runs as the
+            // account's own database user, never as the database superuser.
             self::assertSafeSqlDump(self::BACKUP_DIR . '/' . $useName . '.sql', $database);
             $result = app('provisioning')->execute('backup.db.restore', [
                 'database' => $database,
                 'name' => $useName,
                 'backup_dir' => self::BACKUP_DIR,
+                'db_user' => $owner,
             ]);
         } catch (\Throwable $e) {
+            $this->lastDbRestoreError = $e->getMessage();
             app('logger')->warning('DB restore refused: ' . $e->getMessage());
             return false;
         } finally {
@@ -403,7 +415,31 @@ class BackupService
             }
         }
 
+        if (($result['status'] ?? '') !== 'success' && $this->lastDbRestoreError === null) {
+            $this->lastDbRestoreError = 'agent returned ' . (string) ($result['status'] ?? 'no status');
+        }
+
         return $result['status'] === 'success';
+    }
+
+    /**
+     * The panel-managed MariaDB login recorded for a schema. The scoped
+     * importer authenticates as this user (temporarily rotating its password)
+     * so a dump can never act beyond its own database.
+     */
+    public function databaseOwner(string $database): ?string
+    {
+        try {
+            $row = app('db')->selectOne(
+                'SELECT `username` FROM `hosting_databases` WHERE `name` = ?',
+                [$database]
+            );
+        } catch (\Throwable $e) {
+            return null;
+        }
+        $user = preg_replace('/[^a-z0-9_]/', '', strtolower((string) ($row['username'] ?? '')));
+
+        return $user === '' ? null : $user;
     }
 
     public function dbDelete(string $name): bool

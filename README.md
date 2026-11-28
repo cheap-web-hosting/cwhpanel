@@ -26,13 +26,12 @@ SSL — and then shows you how to use it day to day.
 >   1.1.19–1.1.21 (SQL restore isolation, file-manager symlink race, updater TLS
 >   fallback, SSH jail fail-open, backup truncation). Remaining work is tracked
 >   in the project roadmap.
-> - Behaviour can change between releases (for example: customer database
->   restores are administrator-only until the privilege-separated importer
->   ships). Read the release notes before upgrading.
+> - Behaviour can change between releases. Read the release notes before
+>   upgrading.
 > - Found a bug or a security issue? Open an issue on GitHub — please do not
 >   post exploit details publicly.
 >
-> Current release: **1.1.21** · tested on Rocky Linux 9.7 and 9.9 with SELinux
+> Current release: **1.1.22** · tested on Rocky Linux 9.7 and 9.9 with SELinux
 > enforcing.
 
 ---
@@ -110,7 +109,7 @@ its test suite.
 | | |
 |---|---|
 | Maturity | **early public beta** — features work and are tested, but the project is young and the API/behaviour can change between releases |
-| Current release | 1.1.21 (runtime bundle, signed) |
+| Current release | 1.1.22 (runtime bundle, signed) |
 | Tested on | Rocky Linux 9.7 and 9.9, SELinux enforcing, fresh install + full regression |
 | Isolation model | per-account system user, systemd cgroup limits (CPU/RAM/IO/IOPS), disk/inode quotas, SELinux MCS categories, pooled PHP-FPM |
 | Not included | SpamAssassin anti-spam, uptime watchdog, threat protection, CVE patching, bot shield, per-account IPv6 and per-account PHP masters (paid edition) |
@@ -120,8 +119,11 @@ Known limitations in this beta, so nobody is surprised later:
 
 - **Mail is not virus-scanned.** ClamAV runs and the Antivirus page scans account
   files on demand, but Postfix has no antivirus milter yet (tracked).
-- **Customer database restores are administrator-only** until the
-  privilege-separated SQL importer ships (files and mail restore normally).
+- **Database restores are imported as the account's own database user**
+  (never as the database superuser), so a dump can only ever touch its own
+  schema. The importer temporarily rotates that user's password and restores
+  it byte-exactly; a connection that reconnects during the restore can fail
+  once. Dumps with an unsupported `DEFINER`/`DELIMITER` form are refused.
 - **No anti-spam** in the free edition (SpamAssassin is a paid-edition module).
 
 **Before you rely on it:** install it on a test server, create a throwaway

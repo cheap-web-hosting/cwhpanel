@@ -144,29 +144,29 @@ class CustomerBackupController {
         if (!$backup) return Response::redirect('/panel/backups');
         if ($backup['status'] !== 'completed') { app('session')->flash('error','Only completed backups can be restored.'); return Response::redirect('/panel/backups'); }
         if ($request->input('confirm_restore') !== '1') { app('session')->flash('error','Confirm that restoring this backup may overwrite current files and databases.'); return Response::redirect('/panel/backups'); }
-        // Database dumps are imported with the database superuser until the
-        // schema-scoped importer ships: customer DB restores are blocked here
-        // AND in doRestore() (the remote path), so neither entry point can skip
-        // the check.
-        if (($denied = $this->refuseUnprivilegedDbRestore($backup)) !== null) {
-            return $denied;
-        }
         $svc = app(BackupService::class);
         $nameBase = BackupService::nameBase($backup['name']);
         $ok = true;
         if ($backup['type'] === 'files' || $backup['type'] === 'full') {
             $ok = $svc->restore($accountId, $nameBase) && $ok;
         }
+        $reason = null;
         if ($backup['type'] === 'databases' || $backup['type'] === 'full') {
             foreach ($svc->accountDatabases($accountId) as $dbName) {
-                $ok = $svc->dbRestore($dbName, $nameBase . '.db.' . $dbName) && $ok;
+                if (!$svc->dbRestore($dbName, $nameBase . '.db.' . $dbName)) {
+                    $ok = false;
+                    $reason = 'database ' . $dbName . ($svc->lastDbRestoreError ? ': ' . $svc->lastDbRestoreError : '');
+                }
             }
         }
         if ($ok) {
             event('BackupRestored', ['backup_id'=>$id]);
             audit('backup.restored','backup',$id);
         }
-        app('session')->flash($ok ? 'success' : 'error', $ok ? 'Backup restored.' : 'Restore failed.');
+        app('session')->flash(
+            $ok ? 'success' : 'error',
+            $ok ? 'Backup restored.' : 'Restore failed' . ($reason ? ' (' . $reason . ')' : '') . '.'
+        );
         return Response::redirect('/panel/backups');
     }
 
@@ -216,49 +216,30 @@ class CustomerBackupController {
     }
 
 
-    /**
-     * Customer database restores import a dump with the database superuser.
-     * Until the restore path uses a schema-scoped importer (ROADMAP item 7),
-     * dumps that may have come from a customer-controlled remote are
-     * administrator-only; file and mail restores keep working.
-     */
-    private function refuseUnprivilegedDbRestore(array $backup): ?Response
-    {
-        $type = (string) ($backup['type'] ?? '');
-        if (!in_array($type, ['databases', 'full'], true)) {
-            return null;
-        }
-        if ((string) env('CWH_ALLOW_CUSTOMER_DB_RESTORE', '0') === '1') {
-            return null;
-        }
-        app('session')->flash(
-            'error',
-            'Database restores are temporarily administrator-only while we finish '
-            . 'privilege-separated imports. Ask your administrator to restore this backup.'
-        );
-        return Response::redirect('/panel/backups');
-    }
-
     private function doRestore(int $accountId, array $backup): Response {
-        if (($denied = $this->refuseUnprivilegedDbRestore($backup)) !== null) {
-            return $denied;
-        }
         $svc = app(BackupService::class);
         $nameBase = BackupService::nameBase($backup['name']);
         $ok = true;
         if ($backup['type'] === 'files' || $backup['type'] === 'full') {
             $ok = $svc->restore($accountId, $nameBase) && $ok;
         }
+        $reason = null;
         if ($backup['type'] === 'databases' || $backup['type'] === 'full') {
             foreach ($svc->accountDatabases($accountId) as $dbName) {
-                $ok = $svc->dbRestore($dbName, $nameBase . '.db.' . $dbName) && $ok;
+                if (!$svc->dbRestore($dbName, $nameBase . '.db.' . $dbName)) {
+                    $ok = false;
+                    $reason = 'database ' . $dbName . ($svc->lastDbRestoreError ? ': ' . $svc->lastDbRestoreError : '');
+                }
             }
         }
         if ($ok) {
             event('BackupRestored', ['backup_id'=>(int) $backup['id']]);
             audit('backup.restored','backup',(int) $backup['id']);
         }
-        app('session')->flash($ok ? 'success' : 'error', $ok ? 'Backup restored.' : 'Restore failed.');
+        app('session')->flash(
+            $ok ? 'success' : 'error',
+            $ok ? 'Backup restored.' : 'Restore failed' . ($reason ? ' (' . $reason . ')' : '') . '.'
+        );
         return Response::redirect('/panel/backups');
     }
 

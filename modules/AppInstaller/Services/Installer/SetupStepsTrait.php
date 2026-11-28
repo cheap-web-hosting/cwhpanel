@@ -583,6 +583,13 @@ trait SetupStepsTrait
                     'to_prefix' => $prefix,
                     'database' => (string) $vals['db_name'],
                 ];
+                // Import the shipped schema as the app's own database user,
+                // never as the database superuser (DEFINER clauses are
+                // rewritten by the agent).
+                if (!empty($vals['db_user']) && !empty($vals['db_pass'])) {
+                    $importArgs['db_user'] = (string) $vals['db_user'];
+                    $importArgs['db_password'] = (string) $vals['db_pass'];
+                }
                 if (!empty($sqlSetup['tokens']) && is_array($sqlSetup['tokens'])) {
                     $importArgs['tokens'] = json_encode($sqlSetup['tokens']);
                 }

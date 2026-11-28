@@ -138,16 +138,23 @@ class AdminBackupController {
         if ($backup['type'] === 'files' || $backup['type'] === 'full') {
             $ok = $svc->restore((int)$backup['account_id'], $nameBase) && $ok;
         }
+        $reason = null;
         if ($backup['type'] === 'databases' || $backup['type'] === 'full') {
             foreach ($svc->accountDatabases((int) $backup['account_id']) as $dbName) {
-                $ok = $svc->dbRestore($dbName, $nameBase . '.db.' . $dbName) && $ok;
+                if (!$svc->dbRestore($dbName, $nameBase . '.db.' . $dbName)) {
+                    $ok = false;
+                    $reason = 'database ' . $dbName . ($svc->lastDbRestoreError ? ': ' . $svc->lastDbRestoreError : '');
+                }
             }
         }
         if ($ok) {
             event('BackupRestored', ['backup_id'=>$id]);
             audit('backup.restored','backup',$id);
         }
-        app('session')->flash($ok ? 'success' : 'error', $ok ? 'Backup restored.' : 'Restore failed.');
+        app('session')->flash(
+            $ok ? 'success' : 'error',
+            $ok ? 'Backup restored.' : 'Restore failed' . ($reason ? ' (' . $reason . ')' : '') . '.'
+        );
         return Response::redirect('/admin/backups');
     }
 }
