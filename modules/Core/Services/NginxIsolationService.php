@@ -320,6 +320,9 @@ class NginxIsolationService
             // only ever sees 127.0.0.1, so enforcing there would throttle the
             // whole account as a single client.
             $perAccount = $this->stripRateLimit($perAccount);
+            // IP denies are evaluated at the front door (the worker sees the
+            // proxy's 127.0.0.1, so a deny there would block everyone).
+            $perAccount = $this->stripIpDenies($perAccount);
             // TLS terminates at the front-door (root-owned certs the account
             // user cannot read); the worker only ever serves cleartext.
             $perAccount = $this->stripSsl($perAccount);
@@ -352,7 +355,8 @@ class NginxIsolationService
                 $this->rateLimitFor($website, $account),
                 $this->frontDoorTls($name, $website),
                 $this->frontDoorIps($website, $account),
-                $this->connLimitFor($website, $account)
+                $this->connLimitFor($website, $account),
+                $this->ipDeniesFor((int) ($website['id'] ?? 0))
             );
             try {
                 app('provisioning')->execute('nginx.logs.touch', ['name' => $name]);
@@ -438,6 +442,19 @@ class NginxIsolationService
      * the worker only sees the proxy source address, so enforcing a per-site
      * connection cap there would throttle the whole account as one client.
      */
+    /**
+     * Remove the managed per-website IP deny block from a worker copy.
+     */
+    private function stripIpDenies(string $config): string
+    {
+        $out = preg_replace(
+            '/^[ \t]*# BEGIN cwhpanel-ip-denies \(managed\)\R.*?^[ \t]*# END cwhpanel-ip-denies[ \t]*\R?/ms',
+            '',
+            $config
+        );
+        return is_string($out) ? $out : $config;
+    }
+
     private function stripRateLimit(string $config): string
     {
         $config = preg_replace('/^\s*limit_req(?:_status|_log_level)?\s+[^\n]*\n?/m', '', $config) ?? $config;
@@ -680,9 +697,50 @@ class NginxIsolationService
      * additive dedicated listens (['v6' => addr, 'v4' => addr]) appended to
      * both blocks; wildcards stay, so unbound addresses never break nginx.
      */
-    private function frontDoorBlock(string $name, int $port, bool $wafEnabled, bool $maintenance = false, ?array $rateLimit = null, ?array $tls = null, ?array $ips = null, ?array $connLimit = null): string
+    /**
+     * IPs denied for a website (customer or admin site-scoped blocks).
+     *
+     * @return array<int,string>
+     */
+    private function ipDeniesFor(int $websiteId): array
+    {
+        if ($websiteId <= 0) {
+            return [];
+        }
+        try {
+            $rows = app('db')->select(
+                'SELECT `ip_address` FROM `website_ip_denies` WHERE `website_id` = ? ORDER BY `ip_address`',
+                [$websiteId]
+            );
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $r) {
+            $ip = (string) ($r['ip_address'] ?? '');
+            if (filter_var($ip, FILTER_VALIDATE_IP) !== false) {
+                $out[] = $ip;
+            }
+        }
+        return $out;
+    }
+
+    private function frontDoorBlock(string $name, int $port, bool $wafEnabled, bool $maintenance = false, ?array $rateLimit = null, ?array $tls = null, ?array $ips = null, ?array $connLimit = null, array $denies = []): string
     {
         $name = strtolower(trim($name));
+
+        // IP denies are evaluated HERE (the worker only sees 127.0.0.1), so the
+        // isolated front door must carry them itself — it is built from this
+        // template, not from websites.nginx_config.
+        $denyLines = '';
+        foreach ($denies as $ip) {
+            if (is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP) !== false) {
+                $denyLines .= '    deny ' . $ip . ";\n";
+            }
+        }
+        $denyBlock = $denyLines === ''
+            ? ''
+            : "    # BEGIN cwhpanel-ip-denies (managed)\n" . $denyLines . "    # END cwhpanel-ip-denies\n";
 
         $dedicated80 = '';
         $dedicated443 = '';
@@ -735,7 +793,7 @@ server {
     access_log /var/log/nginx/{$name}.access.log;
     error_log  /var/log/nginx/{$name}.error.log;
 
-{$waf}{$rl}{$conn}{$location}}
+{$waf}{$rl}{$conn}{$denyBlock}{$location}}
 
 NGINX;
 
@@ -763,7 +821,7 @@ server {
     access_log /var/log/nginx/{$name}.access.log;
     error_log  /var/log/nginx/{$name}.error.log;
 
-{$waf}{$rl}{$conn}{$location}}
+{$waf}{$rl}{$conn}{$denyBlock}{$location}}
 NGINX;
     }
 

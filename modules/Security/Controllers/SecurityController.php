@@ -66,19 +66,96 @@ class SecurityController {
         } catch (\Throwable $e) {
             $mysqlHosts = [];
         }
-        $content = view('admin/security/firewall', ['title'=>'Firewall','rules'=>$rules,'attacks'=>$attacks,'ports'=>$ports,'stateError'=>$ports['error'] ?? '','mysqlRemote'=>$mysqlRemote,'mysqlHosts'=>$mysqlHosts], 'layouts/admin');
+        // Admin blocks can target the whole host (firewalld) or a selected set
+        // of websites (nginx deny, same table customers use).
+        $websites = [];
+        $siteDenies = [];
+        $siteDeniesError = '';
+        try {
+            $websites = app('db')->select(
+                'SELECT w.`id`, d.`name` FROM `websites` w JOIN `domains` d ON d.`id` = w.`domain_id` ORDER BY d.`name` LIMIT 1000'
+            );
+            $siteDenies = app('db')->select(
+                'SELECT den.`id`, den.`ip_address`, den.`source`, den.`reason`, den.`created_at`, d.`name` AS `domain`
+                   FROM `website_ip_denies` den
+                   JOIN `websites` w ON w.`id` = den.`website_id`
+                   JOIN `domains` d ON d.`id` = w.`domain_id`
+                  ORDER BY den.`created_at` DESC LIMIT 200'
+            );
+        } catch (\Throwable $e) {
+            // Pre-migration or DB error: the page must say so, never look empty.
+            $siteDeniesError = $e->getMessage();
+        }
+        $content = view('admin/security/firewall', ['title'=>'Firewall','rules'=>$rules,'attacks'=>$attacks,'ports'=>$ports,'stateError'=>$ports['error'] ?? '','mysqlRemote'=>$mysqlRemote,'mysqlHosts'=>$mysqlHosts,'websites'=>$websites,'siteDenies'=>$siteDenies,'siteDeniesError'=>$siteDeniesError], 'layouts/admin');
         return new Response((string)$content);
     }
     public function block(Request $request): Response {
         $ip = trim((string)$request->input('ip',''));
         $reason = trim((string)$request->input('reason',''));
         $service = trim((string)$request->input('service','manual'));
+        $scope = (string) $request->input('scope', 'all');
         if (!filter_var($ip, FILTER_VALIDATE_IP)) { app('session')->flash('error','Invalid IP address.'); return Response::redirect('/admin/security/firewall'); }
+
+        if ($scope === 'websites') {
+            // Tenant-scoped block: nginx `deny` in the selected vhosts only.
+            $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('website_ids', [])))));
+            if ($ids === []) {
+                app('session')->flash('error', 'Select at least one website, or choose "All websites (host firewall)".');
+                return Response::redirect('/admin/security/firewall');
+            }
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $sites = app('db')->select('SELECT `id`, `account_id` FROM `websites` WHERE `id` IN (' . $ph . ')', $ids);
+            if ($sites === []) {
+                app('session')->flash('error', 'Those websites no longer exist.');
+                return Response::redirect('/admin/security/firewall');
+            }
+            $now = date('Y-m-d H:i:s');
+            foreach ($sites as $site) {
+                app('db')->statement(
+                    'INSERT INTO `website_ip_denies` (`website_id`,`ip_address`,`source`,`account_id`,`user_id`,`reason`,`created_at`)'
+                    . ' VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE `source` = ?, `reason` = ?',
+                    [(int) $site['id'], $ip, 'admin', (int) ($site['account_id'] ?? 0) ?: null, null, $reason ?: 'blocked', $now, 'admin', $reason ?: 'blocked']
+                );
+            }
+            $failed = [];
+            foreach ($sites as $site) {
+                try {
+                    app(\Modules\Websites\Services\PrivacyService::class)->regenerate((int) $site['id']);
+                } catch (\Throwable $e) {
+                    $failed[] = $e->getMessage();
+                }
+            }
+            audit('firewall.blocked', 'website_ip_deny', null, ['ip' => $ip, 'sites' => count($sites)]);
+            app('session')->flash(
+                $failed === [] ? 'success' : 'error',
+                $failed === []
+                    ? 'IP blocked on ' . count($sites) . ' website(s).'
+                    : 'Block saved but nginx could not be updated: ' . implode('; ', array_slice($failed, 0, 2))
+            );
+            return Response::redirect('/admin/security/firewall');
+        }
+
         app('db')->statement("INSERT INTO `firewall_rules` (`ip_address`,`action`,`reason`,`created_at`) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE `reason`=VALUES(`reason`)", [$ip,'block',$reason ?: 'blocked',date('Y-m-d H:i:s')]);
         app('db')->insert('firewall_attacks', ['source_ip'=>$ip,'service'=>$service,'action'=>'block','reason'=>$reason ?: 'blocked','created_at'=>date('Y-m-d H:i:s')]);
         try { app('provisioning')->execute('firewall.ip.block', ['ip'=>$ip]); } catch (\Throwable $e) { app('logger')->warning('Firewall block enforce failed: '.$e->getMessage()); }
         audit('firewall.blocked','firewall_rule',null,['ip'=>$ip]);
         app('session')->flash('success','IP blocked.');
+        return Response::redirect('/admin/security/firewall');
+    }
+    public function unblockSiteDeny(int $id): Response {
+        $row = app('db')->selectOne('SELECT * FROM `website_ip_denies` WHERE `id` = ?', [$id]);
+        if ($row === null) {
+            app('session')->flash('error', 'That site block no longer exists.');
+            return Response::redirect('/admin/security/firewall');
+        }
+        app('db')->delete('website_ip_denies', '`id` = ?', [$id]);
+        try {
+            app(\Modules\Websites\Services\PrivacyService::class)->regenerate((int) $row['website_id']);
+        } catch (\Throwable $e) {
+            app('logger')->warning('Site unblock regenerate failed: ' . $e->getMessage());
+        }
+        audit('firewall.unblocked', 'website_ip_deny', $id, ['ip' => $row['ip_address']]);
+        app('session')->flash('success', 'Website block removed.');
         return Response::redirect('/admin/security/firewall');
     }
     public function unblock(int $id): Response {
@@ -258,11 +335,15 @@ class SecurityController {
         $user = app('auth')->user();
         $events = [];
         if ($user) { $events = app('db')->select("SELECT * FROM `audit_logs` WHERE `user_id`=? ORDER BY `id` DESC LIMIT 20",[$user->id]); }
-        // Blocks this account created, plus legacy customer blocks (no owner
-        // columns) for its own IPs. Admin rows never appear here.
-        $myIps = ($accountId && $user) ? app('db')->select(
-            "SELECT * FROM `firewall_rules` WHERE `account_id`=? OR `user_id`=? OR (`account_id` IS NULL AND `user_id` IS NULL AND `reason`='customer block' AND `ip_address` IN (SELECT DISTINCT ip_address FROM audit_logs WHERE user_id=?)) ORDER BY `created_at` DESC",
-            [$accountId, $user->id, $user->id]
+        // Customer blocks are per-website nginx denies (audit #22): a
+        // host-wide firewalld rule would drop the address for every tenant.
+        // Group by IP so the page shows one row per blocked address.
+        $myIps = $accountId ? app('db')->select(
+            "SELECT MIN(d.`id`) AS `id`, d.`ip_address`, CONCAT(COUNT(*), ' site(s)') AS `action`, MAX(d.`created_at`) AS `created_at`
+               FROM `website_ip_denies` d JOIN `websites` w ON w.`id` = d.`website_id`
+              WHERE w.`account_id` = ? AND d.`source` = 'customer'
+              GROUP BY d.`ip_address` ORDER BY MAX(d.`created_at`) DESC",
+            [$accountId]
         ) : [];
         $sslLink = '/panel/ssl';
         $content = view('customer/security/index', ['title'=>'Security','events'=>$events,'myIps'=>$myIps,'sslLink'=>$sslLink], 'layouts/customer');
@@ -296,8 +377,10 @@ class SecurityController {
             return Response::redirect('/panel/security');
         }
         $ownedRules = (int) app('db')->scalar(
-            "SELECT COUNT(*) FROM `firewall_rules` WHERE `account_id` = ? OR `user_id` = ?",
-            [$accountId, $user ? $user->id : 0]
+            "SELECT COUNT(DISTINCT d.`ip_address`) FROM `website_ip_denies` d
+               JOIN `websites` w ON w.`id` = d.`website_id`
+              WHERE w.`account_id` = ? AND d.`source` = 'customer'",
+            [$accountId]
         );
         if ($ownedRules >= 32) {
             app('session')->flash('error','Block list is full (max 32 rules). Remove an old block first.');
@@ -310,44 +393,68 @@ class SecurityController {
             return Response::redirect('/panel/security');
         }
         $rl->hit($rk, 10, 3600);
-        // Never re-own an existing rule: if an admin (or another customer)
-        // already blocked this IP, the customer's insert must not steal the
-        // row's ownership (which would later let them unblock it). Ownership
-        // columns are deliberately left untouched on conflict.
-        app('db')->statement("INSERT INTO `firewall_rules` (`ip_address`,`action`,`account_id`,`user_id`,`reason`,`created_at`) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE `action`='block'", [$ip,'block',$accountId,$user ? $user->id : null,'customer block',date('Y-m-d H:i:s')]);
-        try {
-            app('provisioning')->execute('firewall.ip.block', ['ip'=>$ip]);
-        } catch (\Throwable $e) {
-            app('logger')->warning('Customer firewall block enforce failed: '.$e->getMessage());
-            audit('firewall.customer.blocked','firewall_rule',null,['ip'=>$ip]);
-            app('session')->flash('error','IP recorded but the firewall could not be updated: '.$e->getMessage());
+        $sites = app('db')->select('SELECT `id` FROM `websites` WHERE `account_id` = ?', [$accountId]);
+        if ($sites === []) {
+            app('session')->flash('error', 'Add a website first: blocks apply to your own websites.');
             return Response::redirect('/panel/security');
         }
-        audit('firewall.customer.blocked','firewall_rule',null,['ip'=>$ip]);
-        app('session')->flash('success','IP blocked.');
+        // Tenant-scoped: a `deny` line in each of THIS account's vhosts. Never
+        // a firewalld rule — that would drop the address for every customer.
+        $now = date('Y-m-d H:i:s');
+        foreach ($sites as $site) {
+            app('db')->statement(
+                'INSERT INTO `website_ip_denies` (`website_id`,`ip_address`,`source`,`account_id`,`user_id`,`reason`,`created_at`)'
+                . ' VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE `ip_address` = `ip_address`',
+                [(int) $site['id'], $ip, 'customer', $accountId, $user ? $user->id : null, 'customer block', $now]
+            );
+        }
+        $applied = 0;
+        $failed = [];
+        foreach ($sites as $site) {
+            try {
+                app(\Modules\Websites\Services\PrivacyService::class)->regenerate((int) $site['id']);
+                $applied++;
+            } catch (\Throwable $e) {
+                $failed[] = $e->getMessage();
+            }
+        }
+        audit('firewall.customer.blocked', 'website_ip_deny', null, ['ip' => $ip, 'sites' => count($sites)]);
+        if ($failed !== []) {
+            app('session')->flash('error', 'Block saved but nginx could not be updated: ' . implode('; ', array_slice($failed, 0, 2)));
+        } else {
+            app('session')->flash('success', 'IP blocked on ' . $applied . ' of your website(s).');
+        }
         return Response::redirect('/panel/security');
     }
     public function customerUnblockIp(int $id): Response {
         $accountId = $this->accountId();
         $user = app('auth')->user();
         if ($accountId === null || $user === null) return Response::redirect('/panel/security');
-        // Only blocks this account created (or legacy owner-less customer
-        // blocks for its own IPs). Admin rows can never match.
+        // Only the customer's own site-scoped denies: an admin row (source
+        // `admin`) or another tenant's row can never match.
         $owned = app('db')->selectOne(
-            'SELECT * FROM `firewall_rules` WHERE `id`=? AND (`account_id`=? OR `user_id`=? OR (`account_id` IS NULL AND `user_id` IS NULL AND `reason`=? AND `ip_address` IN (SELECT DISTINCT ip_address FROM audit_logs WHERE user_id=?)))',
-            [$id, $accountId, $user->id, 'customer block', $user->id]
+            'SELECT * FROM `website_ip_denies` WHERE `id`=? AND `account_id`=? AND `source`=?',
+            [$id, $accountId, 'customer']
         );
         if ($owned === null) {
             app('session')->flash('error', 'That block is not one of yours.');
             return Response::redirect('/panel/security');
         }
-        try {
-            app('provisioning')->execute('firewall.ip.unblock', ['ip' => (string) $owned['ip_address']]);
-        } catch (\Throwable $e) {
-            app('logger')->warning('Customer firewall unblock enforce failed: '.$e->getMessage());
+        // One page row per IP: remove it from every site of the account.
+        app('db')->delete(
+            'website_ip_denies',
+            '`ip_address`=? AND `account_id`=? AND `source`=?',
+            [(string) $owned['ip_address'], $accountId, 'customer']
+        );
+        foreach (app('db')->select('SELECT `id` FROM `websites` WHERE `account_id` = ?', [$accountId]) as $site) {
+            try {
+                app(\Modules\Websites\Services\PrivacyService::class)->regenerate((int) $site['id']);
+            } catch (\Throwable $e) {
+                app('logger')->warning('Unblock vhost regenerate failed for site ' . $site['id'] . ': ' . $e->getMessage());
+            }
         }
-        app('db')->delete('firewall_rules','`id`=?',[$id]);
-        app('session')->flash('success','IP unblocked.');
+        audit('firewall.customer.unblocked', 'website_ip_deny', $id, ['ip' => $owned['ip_address']]);
+        app('session')->flash('success', 'IP unblocked.');
         return Response::redirect('/panel/security');
     }
 

@@ -81,6 +81,39 @@ NGINX;
      * duplicated whole location blocks and failed `nginx -t` (bitten live:
      * mt-cron emitted inside nc-cron plus a duplicate top-level copy).
      */
+    /**
+     * Per-website IP denies (audit #22). Customer blocks are not allowed to
+     * touch the host firewall; they are emitted here so they only affect the
+     * site's own vhost. Admin "selected websites" blocks use the same table.
+     * The worker copy strips this block (it only ever sees 127.0.0.1).
+     */
+    private function ipDenyBlock(array $website): string
+    {
+        $id = (int) ($website['id'] ?? 0);
+        if ($id <= 0) {
+            return '';
+        }
+        try {
+            $rows = app('db')->select(
+                'SELECT `ip_address` FROM `website_ip_denies` WHERE `website_id` = ? ORDER BY `ip_address`',
+                [$id]
+            );
+        } catch (\Throwable $e) {
+            return '';
+        }
+        $lines = '';
+        foreach ($rows as $r) {
+            $ip = filter_var((string) ($r['ip_address'] ?? ''), FILTER_VALIDATE_IP);
+            if ($ip === false) {
+                continue;
+            }
+            $lines .= '    deny ' . $ip . ";\n";
+        }
+        return $lines === ''
+            ? ''
+            : "    # BEGIN cwhpanel-ip-denies (managed)\n" . $lines . "    # END cwhpanel-ip-denies\n";
+    }
+
     private function injectBeforeServerDeny(string $config, string $inject): string
     {
         $out = preg_replace_callback(
@@ -336,6 +369,10 @@ NGINX;
         // Injected before the dotfiles deny so `location ~ /\.` keeps its
         // precedence for hidden files; regex wins over `location /` anyway.
         $config = $this->injectBeforeServerDeny($config, $this->staticAssetBlock());
+
+        // Server-level IP denies ride in the 80 block so the 443 sibling
+        // (cloned from it below) inherits them.
+        $config = $this->injectBeforeServerDeny($config, $this->ipDenyBlock($website));
 
         return $config;
     }

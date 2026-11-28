@@ -16,6 +16,7 @@ class Module extends \App\Foundation\Module\Module {
             $r->get('/security/firewall','Modules\Security\Controllers\SecurityController@firewall');
             $r->post('/security/firewall/block','Modules\Security\Controllers\SecurityController@block')->withMiddleware('stepup');
             $r->post('/security/firewall/unblock/{id}','Modules\Security\Controllers\SecurityController@unblock')->withMiddleware('stepup');
+            $r->post('/security/firewall/unblock-site/{id}','Modules\Security\Controllers\SecurityController@unblockSiteDeny')->withMiddleware('stepup');
             $r->post('/security/firewall/open-port','Modules\Security\Controllers\SecurityController@openPort')->withMiddleware('stepup');
             $r->post('/security/firewall/close-port','Modules\Security\Controllers\SecurityController@closePort')->withMiddleware('stepup');
             $r->post('/security/firewall/mysql-remote','Modules\Security\Controllers\SecurityController@mysqlRemote')->withMiddleware('stepup');
@@ -53,5 +54,5 @@ class Module extends \App\Foundation\Module\Module {
             'customer'=>[['id'=>'security','label'=>'Security','icon'=>'shield-check','order'=>38,'children'=>[['id'=>'events','label'=>'Security','url'=>'/panel/security','order'=>0],['id'=>'waf','label'=>'WAF','url'=>'/panel/security/waf','order'=>10],['id'=>'antivirus','label'=>'Antivirus','url'=>'/panel/security/antivirus','order'=>20],['id'=>'ssh','label'=>'SSH Access','url'=>'/panel/security/ssh','order'=>30]]]],
         ];
     }
-    public function migrations(): array { return [\Modules\Security\Migrations\CreateFirewallRulesTable::class, \Modules\Security\Migrations\AddOwnerToFirewallRules::class, \Modules\Security\Migrations\CreateSecuritySettingsTable::class, \Modules\Security\Migrations\CreateSecurityScansTable::class, \Modules\Security\Migrations\CreateFirewallAttacksTable::class, \Modules\Security\Migrations\CreateWafExclusionsTable::class]; }
+    public function migrations(): array { return [\Modules\Security\Migrations\CreateFirewallRulesTable::class, \Modules\Security\Migrations\AddOwnerToFirewallRules::class, \Modules\Security\Migrations\CreateSecuritySettingsTable::class, \Modules\Security\Migrations\CreateSecurityScansTable::class, \Modules\Security\Migrations\CreateFirewallAttacksTable::class, \Modules\Security\Migrations\CreateWafExclusionsTable::class, \Modules\Security\Migrations\CreateWebsiteIpDenies::class]; }
 }
