@@ -183,6 +183,14 @@ class Auth
      */
     public function verifyTotpOnce(int $userId, string $secret, string $code): bool
     {
+        // TOTP seeds are sealed at rest (audit #14); legacy plaintext rows are
+        // returned unchanged by SecretBox::decrypt until the migration runs.
+        try {
+            $secret = \App\Foundation\Security\SecretBox::decrypt($secret);
+        } catch (\Throwable $e) {
+            app('logger')->error('TOTP secret could not be decrypted (code refused): ' . $e->getMessage());
+            return false;
+        }
         $totp = new \Modules\Authentication\Services\Totp();
         $step = $totp->verifyStep($secret, $code);
         if ($step === null) {

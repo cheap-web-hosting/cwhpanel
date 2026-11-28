@@ -26,7 +26,15 @@ class TwoFactorController
             return Response::redirect('/login');
         }
 
-        $secret = $user->twoFactorSecret;
+        // Stored seeds are sealed (audit #14); decrypt for display/otpauth.
+        $secret = null;
+        if ($user->twoFactorEnabled && $user->twoFactorSecret) {
+            try {
+                $secret = \App\Foundation\Security\SecretBox::decrypt($user->twoFactorSecret);
+            } catch (\Throwable $e) {
+                $secret = null;
+            }
+        }
 
         if (!$user->twoFactorEnabled) {
             // Generate and stage a new secret for confirmation.
@@ -61,7 +69,7 @@ class TwoFactorController
         }
 
         app('db')->update('users', [
-            'two_factor_secret' => $secret,
+            'two_factor_secret' => \App\Foundation\Security\SecretBox::encrypt((string) $secret),
             'two_factor_enabled' => 1,
             'updated_at' => date('Y-m-d H:i:s'),
         ], '`id` = ?', [$user->id]);

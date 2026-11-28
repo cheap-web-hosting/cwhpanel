@@ -39,7 +39,11 @@ class Totp
         $now = (int) floor(time() / self::PERIOD);
 
         for ($offset = -$window; $offset <= $window; $offset++) {
-            if (hash_equals((string) $this->codeAt($secret, $now + $offset), $code)) {
+            // codeAt() returns an int, so a code whose first digit is zero
+            // would compare as 5 characters and be rejected (1 in 10 correct
+            // codes). Pad before the constant-time comparison.
+            $expected = str_pad((string) $this->codeAt($secret, $now + $offset), self::DIGITS, '0', STR_PAD_LEFT);
+            if (hash_equals($expected, $code)) {
                 return $now + $offset;
             }
         }

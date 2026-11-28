@@ -7,7 +7,7 @@
  *   php scripts/enroll-admin-2fa.php admin@example.com --disable
  *
  * Prints the otpauth:// provisioning URI (scan with any authenticator app).
- * The secret is stored base32 (required for OTP verification). Once every
+ * The seed is sealed at rest with the application key (audit #14). Once every
  * administrator is enrolled, enforce logins with:
  *   mysql cwhpanel -e "INSERT INTO settings (\`name\`,\`value\`) VALUES
  *     ('auth.require_admin_2fa','1') ON DUPLICATE KEY UPDATE \`value\`='1'"
@@ -47,7 +47,7 @@ if ($disable) {
 
 $secret = $totp->generateSecret();
 app('db')->update('users', [
-    'two_factor_secret' => $secret,
+    'two_factor_secret' => \App\Foundation\Security\SecretBox::encrypt($secret),
     'two_factor_enabled' => 1,
     'updated_at' => date('Y-m-d H:i:s'),
 ], '`id` = ?', [(int) $row['id']]);

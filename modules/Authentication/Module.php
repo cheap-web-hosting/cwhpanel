@@ -67,6 +67,7 @@ class Module extends \App\Foundation\Module\Module
             \Modules\Authentication\Migrations\CreatePasswordResetTokensTable::class,
             \Modules\Authentication\Migrations\AddTwoFactorToUsersTable::class,
             \Modules\Authentication\Migrations\AddTwoFactorLastStep::class,
+            \Modules\Authentication\Migrations\EncryptTwoFactorSecrets::class,
         ];
     }
 }
