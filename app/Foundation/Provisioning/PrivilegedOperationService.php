@@ -212,6 +212,7 @@ class PrivilegedOperationService
         'file.copy' => ['account', 'from', 'to'],
         'file.chmod' => ['account', 'path', 'mode'],
         'file.archive' => ['account', 'path', 'name', 'format'],
+        'file.archive.prune' => ['?account', '?days'],
         'file.extract' => ['account', 'path', 'name', 'format'],
         'app.start' => ['account', 'name', 'runtime', 'work_dir', 'entry_point', '?runtime_version', '?env', '?netns', '?jailed', '?memory_mb'],
         'app.jail.ensure' => ['account'],

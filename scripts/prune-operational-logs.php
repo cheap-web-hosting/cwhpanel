@@ -23,6 +23,16 @@ $tables = [
     'audit_logs' => 365,
 ];
 
+// File-manager archives live outside the account quota; keep only a short
+// retention window (the per-account keep-count runs when a new archive is
+// created). Best-effort: a failure here must not fail the log prune.
+try {
+    $r = app('provisioning')->execute('file.archive.prune', ['days' => 7]);
+    echo "pruned file-manager archives older than 7d: " . (string) ($r['status'] ?? 'unknown') . "\n";
+} catch (\Throwable $e) {
+    fwrite(STDERR, 'prune file-manager archives failed: ' . $e->getMessage() . "\n");
+}
+
 foreach ($tables as $table => $days) {
     $cutoff = date('Y-m-d H:i:s', time() - $days * 86400);
     try {
