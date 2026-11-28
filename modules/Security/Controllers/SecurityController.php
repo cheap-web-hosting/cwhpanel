@@ -784,7 +784,7 @@ class SecurityController {
         if ($existing) {
             app('db')->update('security_settings', ['hotlink_protection'=>$enabled ? 1:0,'updated_at'=>date('Y-m-d H:i:s')], '`id`=?',[$existing['id']]);
         } else {
-            app('db')->insert('security_settings', ['account_id'=>(int)$web['account_id'],'website_id'=>$websiteId,'hotlink_protection'=>$enabled ? 1:0,'waf_enabled'=>0,'waf_mode'=>'detection','updated_at'=>date('Y-m-d H:i:s')]);
+            app('db')->insert('security_settings', ['account_id'=>(int)$web['account_id'],'website_id'=>$websiteId,'hotlink_protection'=>$enabled ? 1:0,'waf_enabled'=>app(\Modules\Security\Services\WafService::class)->defaultEnabled() ? 1 : 0,'waf_mode'=>app(\Modules\Security\Services\WafService::class)->defaultEnabled() ? 'on' : 'detection','updated_at'=>date('Y-m-d H:i:s')]);
         }
         audit('hotlink.toggled','website',$websiteId,['enabled'=>$enabled]);
         app('session')->flash('success',$enabled ? 'Hotlink protection enabled.':'Hotlink protection disabled.');
@@ -815,7 +815,7 @@ class SecurityController {
         if ($existing) {
             app('db')->update('security_settings', ['hotlink_protection'=>$enabled ? 1:0,'updated_at'=>date('Y-m-d H:i:s')], '`id`=?',[$existing['id']]);
         } else {
-            app('db')->insert('security_settings', ['account_id'=>$accountId,'website_id'=>$websiteId,'hotlink_protection'=>$enabled ? 1:0,'waf_enabled'=>0,'waf_mode'=>'detection','updated_at'=>date('Y-m-d H:i:s')]);
+            app('db')->insert('security_settings', ['account_id'=>$accountId,'website_id'=>$websiteId,'hotlink_protection'=>$enabled ? 1:0,'waf_enabled'=>app(\Modules\Security\Services\WafService::class)->defaultEnabled() ? 1 : 0,'waf_mode'=>app(\Modules\Security\Services\WafService::class)->defaultEnabled() ? 'on' : 'detection','updated_at'=>date('Y-m-d H:i:s')]);
         }
         audit('hotlink.toggled','website',$websiteId,['enabled'=>$enabled]);
         app('session')->flash('success',$enabled ? 'Hotlink protection enabled.':'Hotlink protection disabled.');
@@ -887,6 +887,11 @@ class SecurityController {
     // SecRuleEngine), then regenerate + rewrite the nginx vhost so the
     // `modsecurity on` directive actually lands and reload is validated.
     private function applyWaf(int $websiteId, bool $enabled, string $mode, bool $coalesce = false): void {
+        // The DB is the source of truth (setWaf writes the row first). The
+        // argument can disagree on a direct call (tests, legacy paths) and a
+        // disagreement with the generator leaves a dangling rules-file
+        // reference that breaks `nginx -t` host-wide.
+        $enabled = app(\Modules\Security\Services\WafService::class)->enabledFor($websiteId);
         $site = app('db')->selectOne(
             "SELECT w.*, d.`name` AS domain, a.`username` AS username FROM `websites` w
              JOIN `domains` d ON d.id=w.domain_id

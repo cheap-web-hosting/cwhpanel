@@ -130,6 +130,30 @@ class WafService
      * log provisioning failures as warnings.
      */
     /**
+     * Effective WAF state for a site: the per-site row wins, otherwise the
+     * global default (security.waf_default, default ON). Regenerate, the vhost
+     * generator and the toggle controller MUST all use this — a disagreement
+     * leaves a vhost pointing at a deleted rules file and breaks `nginx -t`
+     * host-wide.
+     */
+    public function enabledFor(int $websiteId): bool
+    {
+        if ($websiteId <= 0) {
+            return false;
+        }
+        try {
+            $row = app('db')->selectOne(
+                'SELECT `waf_enabled` FROM `security_settings` WHERE `website_id` = ?',
+                [$websiteId]
+            );
+        } catch (\Throwable $e) {
+            return true;
+        }
+
+        return $row === null ? $this->defaultEnabled() : !empty($row['waf_enabled']);
+    }
+
+    /**
      * @param bool $coalesce write the vhost without reloading nginx and queue a
      *                       single short-delayed reload (customer WAF path, audit #23)
      */
@@ -147,7 +171,7 @@ class WafService
             'SELECT * FROM `security_settings` WHERE `website_id` = ?',
             [$websiteId]
         );
-        $enabled = $settings !== null && !empty($settings['waf_enabled']);
+        $enabled = $this->enabledFor($websiteId);
         // ORDER MATTERS, the same way it does in the controller: the agent's
         // `waf.rules.delete` runs `nginx -t` after removing the file, and a
         // vhost that still references it makes that test fail host-wide. So:

@@ -630,22 +630,9 @@ class NginxIsolationService
 
     private function isWafEnabled(array $website): bool
     {
-        $websiteId = (int) ($website['id'] ?? 0);
-        if ($websiteId <= 0) {
-            return false;
-        }
-
-        $row = app('db')->selectOne(
-            'SELECT `waf_enabled` FROM `security_settings` WHERE `website_id` = ?',
-            [$websiteId]
-        );
-
-        if ($row === null) {
-            // No settings row yet (new/legacy site): follow the global default.
-            return app(\Modules\Security\Services\WafService::class)->defaultEnabled();
-        }
-
-        return (bool) $row['waf_enabled'];
+        // Same effective-state helper as the generator + WafService.
+        return app(\Modules\Security\Services\WafService::class)
+            ->enabledFor((int) ($website['id'] ?? 0));
     }
 
     /**
