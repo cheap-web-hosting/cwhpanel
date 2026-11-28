@@ -572,9 +572,13 @@ Admin → Email manages:
 
 ![Security overview](docs/screenshots/admin-security.png)
 
-- **Firewall** — open/close ports, block/unblock IPs, allow remote MySQL
+- **Firewall** — open/close ports; block an IP on **all websites** (host
+  firewall) or only on **selected websites** (an nginx `deny` in those vhosts);
+  allow remote MySQL. Customers can block an IP on **their own websites only** —
+  never the host firewall or another tenant.
 - **WAF (ModSecurity + OWASP CRS)** — per-site on/off and rule exclusions
-- **Antivirus** — ClamAV status and scans
+- **Antivirus** — ClamAV status and scans of account files (mail is not
+  virus-scanned yet; see the limitations at the top of this guide)
 - **SSH access** — keys, jailed shell, server port
 - **Audit log** — every login and admin action
 
