@@ -1,9 +1,9 @@
 {
-  "tag": "v1.1.28",
-  "commit": "cf093449c51db1add8f72c2331bf8bf017f05caf",
-  "version": "1.1.28",
-  "agent_sha256": "9af0a9b9caacaca522517657d9c12fa325c1008c043b3a316ed2b9e10ded56a2",
+  "tag": "v1.1.29",
+  "commit": "a2ea2b7ae575ba292343e1bd9ec5fe08797bcd14",
+  "version": "1.1.29",
+  "agent_sha256": "8853d0128fb5ca4d59a817c1a4f9eb57a120025e7728067f2ac82ccd3d1e2361",
   "selinux_modules_sha256": "f269257708fb9b8f9d83259f59912f87603463c7c898161f8bff0504d2cdeb56",
-  "built_at": "2026-11-28T10:22:34Z",
+  "built_at": "2026-11-28T10:54:43Z",
   "builder_host": "jarvis.myownhost.ovh"
 }
