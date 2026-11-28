@@ -689,7 +689,7 @@ class SecurityController {
             return Response::redirect('/admin/security/waf');
         }
         try {
-            app(\Modules\Security\Services\WafService::class)->addExclusion($websiteId, $ruleId, (string) $request->input('reason', ''), true);
+            app(\Modules\Security\Services\WafService::class)->addExclusion($websiteId, $ruleId, (string) $request->input('reason', ''));
             audit('waf.rule_disabled', 'website', $websiteId, ['rule' => $ruleId]);
             app('session')->flash('success', "Rule {$ruleId} disabled for this site.");
         } catch (\Throwable $e) {
@@ -708,7 +708,7 @@ class SecurityController {
             return Response::redirect('/admin/security/waf');
         }
         try {
-            app(\Modules\Security\Services\WafService::class)->removeExclusion($websiteId, $ruleId, true);
+            app(\Modules\Security\Services\WafService::class)->removeExclusion($websiteId, $ruleId);
             audit('waf.rule_enabled', 'website', $websiteId, ['rule' => $ruleId]);
             app('session')->flash('success', "Rule {$ruleId} re-enabled.");
         } catch (\Throwable $e) {
@@ -735,7 +735,7 @@ class SecurityController {
             return Response::redirect('/panel/security/waf');
         }
         try {
-            app(\Modules\Security\Services\WafService::class)->addExclusion($websiteId, $ruleId, (string) $request->input('reason', ''));
+            app(\Modules\Security\Services\WafService::class)->addExclusion($websiteId, $ruleId, (string) $request->input('reason', ''), true);
             audit('waf.rule_disabled', 'website', $websiteId, ['rule' => $ruleId]);
             app('session')->flash('success', "Rule {$ruleId} disabled for this site.");
         } catch (\Throwable $e) {
@@ -764,7 +764,7 @@ class SecurityController {
             return Response::redirect('/panel/security/waf');
         }
         try {
-            app(\Modules\Security\Services\WafService::class)->removeExclusion($websiteId, $ruleId);
+            app(\Modules\Security\Services\WafService::class)->removeExclusion($websiteId, $ruleId, true);
             audit('waf.rule_enabled', 'website', $websiteId, ['rule' => $ruleId]);
             app('session')->flash('success', "Rule {$ruleId} re-enabled.");
         } catch (\Throwable $e) {
