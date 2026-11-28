@@ -89,12 +89,24 @@ allow cwhpanel_agent_t user_tmp_t:file { read write create unlink getattr setatt
 allow cwhpanel_agent_t user_tmp_t:lnk_file { read create unlink getattr setattr };
 
 
-# userdel/pkill checks /proc/<pid> of every system domain for remaining
-# processes of a user being deleted. Allow the generic proc read so the
-# check never spuriously fails/races.
-allow cwhpanel_agent_t domain:dir { getattr open read search };
-allow cwhpanel_agent_t domain:file { getattr open read };
-allow cwhpanel_agent_t domain:lnk_file { getattr read };
+# /proc/<pid> entries of THIS domain's own processes carry the domain type,
+# and the pinned-fd helpers read /proc/self/fd/* and /proc/self/mountinfo.
+# Keep exactly those; foreign process domains are deliberately unreadable
+# (security audit #5). Account termination no longer scans /proc from this
+# domain at all: it is cgroup-scoped (systemctl kill) plus a UID-wide
+# `kill -1` executed by systemd as the account (see kill_account_processes
+# in server.rs), so userdel's own /proc busy-check has nothing left to find.
+allow cwhpanel_agent_t self:dir { getattr open read search };
+allow cwhpanel_agent_t self:file { getattr open read };
+allow cwhpanel_agent_t self:lnk_file { getattr read };
+
+# shadow-utils' userdel still probes /proc/<pid> of every process (the `-f`
+# flag skips the refusal, not the scan). Those probes are DENIED — no access —
+# but each deletion would otherwise write one audit record per running
+# process. Suppress the expected denials only; the kill sweep (cgroup + uid
+# `kill -1`, executed by systemd) has already terminated the account.
+dontaudit cwhpanel_agent_t domain:dir { getattr search read };
+dontaudit cwhpanel_agent_t domain:file { getattr read };
 
 
 
