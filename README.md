@@ -1,7 +1,7 @@
 # Getting Started with CWH Control Panel — Free Edition
 
 ![Status: early release (beta)](https://img.shields.io/badge/status-early%20release%20(beta)-orange)
-![Latest release](https://img.shields.io/github/v/release/cheap-web-hosting/cwhpanel?label=release)
+![Latest release](https://img.shields.io/github/v/release/cheap-web-hosting/cwhpanel?include_prereleases&label=release)
 ![License: proprietary, free to use](https://img.shields.io/badge/license-proprietary%20(free%20to%20use)-blue)
 
 A complete, beginner-friendly guide that takes you from a **blank Rocky Linux 9
