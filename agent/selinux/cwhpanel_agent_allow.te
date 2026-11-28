@@ -109,6 +109,7 @@ require {
 	type man_t;
 	type var_log_t;
 	type journalctl_exec_t;
+	type hostname_exec_t;
 	type bin_t;
 	type cwhpanel_agent_sock_t;
 	type etc_t;
@@ -610,3 +611,25 @@ corenet_tcp_connect_all_ports(cwhpanel_agent_t)
 corenet_udp_sendrecv_all_nodes(cwhpanel_agent_t)
 corenet_tcp_sendrecv_all_if(cwhpanel_agent_t)
 corenet_udp_sendrecv_all_if(cwhpanel_agent_t)
+
+# ---- fresh-install gaps found by the 2026-11-28 install sweep -------------
+# /usr/bin/hostname: system.hostname.set caches the previous -f/-s names so
+# stale /etc/hosts lines can be dropped. Denied => the "was <name>" report is
+# blank and an old mapping can linger (silent degradation).
+allow cwhpanel_agent_t hostname_exec_t:file { getattr open read map execute execute_no_trans };
+# app.logs shells out to journalctl; the journal lives in /run/log/journal
+# (syslogd_var_run_t) on a volatile host. Only `search` was granted, so the
+# directory listing was denied and the log viewer could come back empty.
+allow cwhpanel_agent_t syslogd_var_run_t:dir { read open getattr };
+allow cwhpanel_agent_t syslogd_var_run_t:file { getattr open read map };
+# git object writes use hardlinks (tmp_obj_* -> objects/xx/...). Without
+# `link` on the account home types every deploy logs AVCs and git falls back
+# to copying (large repos slow down / warn).
+allow cwhpanel_agent_t user_home_dir_t:file link;
+allow cwhpanel_agent_t user_home_t:file link;
+# ssh.keys.write chcons authorized_keys from ssh_home_t back to the account
+# type; relabelfrom was missing while relabelto was granted.
+allow cwhpanel_agent_t ssh_home_t:file relabelfrom;
+# sievec loads the dovecot configuration through the config socket; the
+# compile succeeded but the socket write was denied (noise / fragile path).
+allow cwhpanel_agent_t dovecot_var_run_t:sock_file { getattr read write };
