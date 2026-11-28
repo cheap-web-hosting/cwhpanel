@@ -649,9 +649,21 @@ class SecurityController {
         if (!$web) { app('session')->flash('error','Select one of your websites.'); return Response::redirect('/panel/security/waf'); }
         $enabled = (int)$request->input('enabled',0) === 1;
         $mode = (string)$request->input('mode','detection');
-        $this->setWaf($accountId, $websiteId, $enabled, $mode);
-        audit('waf.toggled','website',$websiteId,['enabled'=>$enabled,'mode'=>$mode]);
-        app('session')->flash('success',$enabled ? 'WAF enabled ('.$mode.' mode).':'WAF disabled.');
+        // Per-account cooldown + single-flight (audit #23): every WAF change
+        // regenerates a vhost and reloads nginx.
+        $guard = app(\Modules\Security\Services\SecurityActionGuard::class);
+        $denied = $guard->acquire($accountId, 'waf', 10);
+        if ($denied !== null) {
+            app('session')->flash('error', $denied);
+            return Response::redirect('/panel/security/waf');
+        }
+        try {
+            $this->setWaf($accountId, $websiteId, $enabled, $mode);
+            audit('waf.toggled','website',$websiteId,['enabled'=>$enabled,'mode'=>$mode]);
+            app('session')->flash('success',$enabled ? 'WAF enabled ('.$mode.' mode).':'WAF disabled.');
+        } finally {
+            $guard->release($accountId, 'waf');
+        }
         return Response::redirect('/panel/security/waf');
     }
 
@@ -716,12 +728,20 @@ class SecurityController {
             app('session')->flash('error', 'Select one of your websites and a numeric rule ID.');
             return Response::redirect('/panel/security/waf');
         }
+        $guard = app(\Modules\Security\Services\SecurityActionGuard::class);
+        $denied = $guard->acquire($accountId, 'waf', 10);
+        if ($denied !== null) {
+            app('session')->flash('error', $denied);
+            return Response::redirect('/panel/security/waf');
+        }
         try {
             app(\Modules\Security\Services\WafService::class)->addExclusion($websiteId, $ruleId, (string) $request->input('reason', ''));
             audit('waf.rule_disabled', 'website', $websiteId, ['rule' => $ruleId]);
             app('session')->flash('success', "Rule {$ruleId} disabled for this site.");
         } catch (\Throwable $e) {
             app('session')->flash('error', 'Could not disable rule: ' . $e->getMessage());
+        } finally {
+            $guard->release($accountId, 'waf');
         }
         return Response::redirect('/panel/security/waf');
     }
@@ -737,12 +757,20 @@ class SecurityController {
             app('session')->flash('error', 'Invalid website or rule ID.');
             return Response::redirect('/panel/security/waf');
         }
+        $guard = app(\Modules\Security\Services\SecurityActionGuard::class);
+        $denied = $guard->acquire($accountId, 'waf', 10);
+        if ($denied !== null) {
+            app('session')->flash('error', $denied);
+            return Response::redirect('/panel/security/waf');
+        }
         try {
             app(\Modules\Security\Services\WafService::class)->removeExclusion($websiteId, $ruleId);
             audit('waf.rule_enabled', 'website', $websiteId, ['rule' => $ruleId]);
             app('session')->flash('success', "Rule {$ruleId} re-enabled.");
         } catch (\Throwable $e) {
             app('session')->flash('error', 'Could not re-enable rule: ' . $e->getMessage());
+        } finally {
+            $guard->release($accountId, 'waf');
         }
         return Response::redirect('/panel/security/waf');
     }
@@ -806,7 +834,19 @@ class SecurityController {
         if (!$accountId) return Response::redirect('/panel/security');
         $account = app('db')->selectOne("SELECT * FROM `accounts` WHERE `id`=?",[$accountId]);
         if (!$account) return Response::redirect('/panel/security');
-        $result = $this->runScan($account);
+        // 5-minute per-account cooldown and a host-wide concurrency budget of
+        // one scan (audit #23): clamscan over a home tree is expensive.
+        $guard = app(\Modules\Security\Services\SecurityActionGuard::class);
+        $denied = $guard->acquire($accountId, 'av', 300, true);
+        if ($denied !== null) {
+            app('session')->flash('error', $denied);
+            return Response::redirect('/panel/security/antivirus');
+        }
+        try {
+            $result = $this->runScan($account);
+        } finally {
+            $guard->release($accountId, 'av', true);
+        }
         app('session')->flash($result['status']==='success' ? 'success':'error', $result['message']);
         return Response::redirect('/panel/security/antivirus');
     }

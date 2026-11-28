@@ -154,6 +154,11 @@ class AccountTeardownService
             $db->delete('backup_remotes', '`account_id` = ?', [$accountId]);
         });
 
+        // 8b. Security action cooldown/single-flight state (audit #23).
+        $step('security.locks.delete', function () use ($db, $accountId) {
+            $db->delete('security_action_locks', '`account_id` = ?', [$accountId]);
+        });
+
         // 9. Stop the per-account nginx worker (its conf/home dies with the
         //    user; the unit must not keep serving).
         $step('nginx.worker.stop', function () use ($username) {
