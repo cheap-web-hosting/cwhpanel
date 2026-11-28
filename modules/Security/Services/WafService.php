@@ -91,7 +91,7 @@ class WafService
     }
 
     /** Disable one CRS rule for a website and regenerate its conf. */
-    public function addExclusion(int $websiteId, int $ruleId, string $reason = ''): void
+    public function addExclusion(int $websiteId, int $ruleId, string $reason = '', bool $coalesce = false): void
     {
         try {
             app('db')->statement(
@@ -101,14 +101,14 @@ class WafService
         } catch (\Throwable $e) {
             throw new \RuntimeException('Could not store the exclusion: ' . $e->getMessage());
         }
-        $this->regenerate($websiteId);
+        $this->regenerate($websiteId, $coalesce);
     }
 
     /** Re-enable one CRS rule for a website and regenerate its conf. */
-    public function removeExclusion(int $websiteId, int $ruleId): void
+    public function removeExclusion(int $websiteId, int $ruleId, bool $coalesce = false): void
     {
         app('db')->delete('website_waf_exclusions', '`website_id` = ? AND `rule_id` = ?', [$websiteId, $ruleId]);
-        $this->regenerate($websiteId);
+        $this->regenerate($websiteId, $coalesce);
     }
 
     /** Full per-domain ModSecurity conf content for an engine mode. */
@@ -129,7 +129,11 @@ class WafService
      * (or delete it when the WAF is off). Never throws — callers already
      * log provisioning failures as warnings.
      */
-    public function regenerate(int $websiteId): void
+    /**
+     * @param bool $coalesce write the vhost without reloading nginx and queue a
+     *                       single short-delayed reload (customer WAF path, audit #23)
+     */
+    public function regenerate(int $websiteId, bool $coalesce = false): void
     {
         $site = app('db')->selectOne(
             "SELECT w.*, d.`name` AS domain FROM `websites` w
@@ -195,7 +199,11 @@ class WafService
                         [(int) $websiteId]
                     );
                     app(\Modules\Core\Services\NginxIsolationService::class)
-                        ->pushVhost($account, (string) $site['domain'], $cfg);
+                        ->pushVhost($account, (string) $site['domain'], $cfg, $coalesce);
+                    if ($coalesce && !\App\Foundation\Provisioning\NginxReloadCoalescer::schedule()) {
+                        // Coalescing unavailable (DB/queue failure): apply now.
+                        app('provisioning')->execute('nginx.reload', []);
+                    }
                 }
             } catch (\Throwable $e) {
                 app('logger')->warning('WAF vhost refresh failed for ' . $site['domain'] . ': ' . $e->getMessage());

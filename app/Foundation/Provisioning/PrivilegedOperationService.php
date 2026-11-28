@@ -71,7 +71,7 @@ class PrivilegedOperationService
         'php.pool.delete' => ['account', 'version'],
         'php.ini.read' => ['version'],
         'php.ini.write' => ['version', 'contents'],
-        'nginx.vhost.write' => ['name', 'contents'],
+        'nginx.vhost.write' => ['name', 'contents', '?defer_reload'],
         'nginx.vhost.delete' => ['name'],
         'nginx.logs.touch' => ['name'],
         'nginx.test' => [],

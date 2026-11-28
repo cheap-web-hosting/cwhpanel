@@ -76,6 +76,7 @@ class JobRegistry
             'system.updates.check' => self::systemUpdatesCheck($payload),
             'system.updates.apply' => self::systemUpdatesApply($payload),
             'system.hostname.change' => self::systemHostnameChange($payload),
+            'nginx.reload.coalesced' => self::nginxReloadCoalesced($payload),
             default => throw new \RuntimeException("no handler for job type: {$type}"),
         };
     }
@@ -343,6 +344,20 @@ class JobRegistry
      * files check keeps a free-edition tree (module directory removed) from
      * fatalling on a class reference that no longer resolves.
      */
+    /**
+     * Coalesced global nginx reload (security audit #23): customer WAF
+     * changes write their vhosts with defer_reload and queue this single job,
+     * so N tenants cause one reload instead of N.
+     *
+     * @return array<string,mixed>
+     */
+    private static function nginxReloadCoalesced(array $payload): array
+    {
+        app('provisioning')->execute('nginx.reload', []);
+
+        return ['reloaded' => true, 'at' => date('Y-m-d H:i:s')];
+    }
+
     private static function moduleAvailable(string $module): bool
     {
         try {

@@ -132,17 +132,21 @@ class NginxIsolationService
      * front-door write. Callers must persist websites.nginx_config first,
      * since the isolated path re-reads stored configs.
      */
-    public function pushVhost(array $account, string $domainName, string $nginx): void
+    /**
+     * @param bool $deferReload skip the global nginx reload (the caller coalesces
+     *                          it) — customer WAF changes, audit #23
+     */
+    public function pushVhost(array $account, string $domainName, string $nginx, bool $deferReload = false): void
     {
         if ($this->isEnabled($account)) {
             $port = $this->portFor((int) $account['id']);
             if ($port !== null) {
-                $this->rewriteVhosts($account, $port);
+                $this->rewriteVhosts($account, $port, $deferReload);
                 $this->startWorker($account);
                 return;
             }
         }
-        app(\Modules\Websites\Services\VhostWriter::class)->write($domainName, $nginx);
+        app(\Modules\Websites\Services\VhostWriter::class)->write($domainName, $nginx, $deferReload);
     }
 
     /**
@@ -256,7 +260,7 @@ class NginxIsolationService
      * 127.0.0.1:<port>) into the account conf.d, and generate the matching
      * front-door proxy server block so the shared nginx forwards to that port.
      */
-    public function rewriteVhosts(array $account, int $port): void
+    public function rewriteVhosts(array $account, int $port, bool $deferReload = false): void
     {
         // Ensure the account nginx config tree (conf.d dir) exists before writing.
         $this->write($account);
@@ -363,10 +367,14 @@ class NginxIsolationService
             } catch (\Throwable $e) {
                 app('logger')->warning('Nginx log pre-create failed for ' . $name . ': ' . $e->getMessage());
             }
-            app('provisioning')->execute('nginx.vhost.write', [
+            $frontArgs = [
                 'name' => $name,
                 'contents' => $frontDoor,
-            ]);
+            ];
+            if ($deferReload) {
+                $frontArgs['defer_reload'] = '1';
+            }
+            app('provisioning')->execute('nginx.vhost.write', $frontArgs);
         }
     }
 

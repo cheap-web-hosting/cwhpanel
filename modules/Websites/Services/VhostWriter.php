@@ -12,17 +12,25 @@ namespace Modules\Websites\Services;
  */
 class VhostWriter
 {
-    public function write(string $name, string $contents): array
+    /**
+     * @param bool $deferReload write + `nginx -t` only; the caller coalesces
+     *                          the global reload (customer WAF changes, audit #23)
+     */
+    public function write(string $name, string $contents, bool $deferReload = false): array
     {
         try {
             app('provisioning')->execute('nginx.logs.touch', ['name' => $name]);
         } catch (\Throwable $e) {
             app('logger')->warning('Nginx log pre-create failed for ' . $name . ': ' . $e->getMessage());
         }
-        return app('provisioning')->execute('nginx.vhost.write', [
+        $args = [
             'name' => $name,
             'contents' => $contents,
-        ]);
+        ];
+        if ($deferReload) {
+            $args['defer_reload'] = '1';
+        }
+        return app('provisioning')->execute('nginx.vhost.write', $args);
     }
 
     public function delete(string $name): array

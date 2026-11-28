@@ -658,7 +658,7 @@ class SecurityController {
             return Response::redirect('/panel/security/waf');
         }
         try {
-            $this->setWaf($accountId, $websiteId, $enabled, $mode);
+            $this->setWaf($accountId, $websiteId, $enabled, $mode, true);
             audit('waf.toggled','website',$websiteId,['enabled'=>$enabled,'mode'=>$mode]);
             app('session')->flash('success',$enabled ? 'WAF enabled ('.$mode.' mode).':'WAF disabled.');
         } finally {
@@ -689,7 +689,7 @@ class SecurityController {
             return Response::redirect('/admin/security/waf');
         }
         try {
-            app(\Modules\Security\Services\WafService::class)->addExclusion($websiteId, $ruleId, (string) $request->input('reason', ''));
+            app(\Modules\Security\Services\WafService::class)->addExclusion($websiteId, $ruleId, (string) $request->input('reason', ''), true);
             audit('waf.rule_disabled', 'website', $websiteId, ['rule' => $ruleId]);
             app('session')->flash('success', "Rule {$ruleId} disabled for this site.");
         } catch (\Throwable $e) {
@@ -708,7 +708,7 @@ class SecurityController {
             return Response::redirect('/admin/security/waf');
         }
         try {
-            app(\Modules\Security\Services\WafService::class)->removeExclusion($websiteId, $ruleId);
+            app(\Modules\Security\Services\WafService::class)->removeExclusion($websiteId, $ruleId, true);
             audit('waf.rule_enabled', 'website', $websiteId, ['rule' => $ruleId]);
             app('session')->flash('success', "Rule {$ruleId} re-enabled.");
         } catch (\Throwable $e) {
@@ -792,7 +792,7 @@ class SecurityController {
     }
 
     /** Upsert security_settings, sync the rules file, and regenerate the vhost. */
-    private function setWaf(int $accountId, int $websiteId, bool $enabled, string $mode): void {
+    private function setWaf(int $accountId, int $websiteId, bool $enabled, string $mode, bool $coalesce = false): void {
         $mode = in_array($mode, ['detection','on'], true) ? $mode : 'detection';
         $existing = app('db')->selectOne("SELECT * FROM `security_settings` WHERE `account_id`=? AND `website_id`=?",[$accountId,$websiteId]);
         if ($existing) {
@@ -800,7 +800,7 @@ class SecurityController {
         } else {
             app('db')->insert('security_settings', ['account_id'=>$accountId,'website_id'=>$websiteId,'hotlink_protection'=>0,'waf_enabled'=>$enabled ? 1:0,'waf_mode'=>$mode,'updated_at'=>date('Y-m-d H:i:s')]);
         }
-        $this->applyWaf($websiteId, $enabled, $mode);
+        $this->applyWaf($websiteId, $enabled, $mode, $coalesce);
     }
 
     // ----- Customer: hotlink protection -----
@@ -886,7 +886,7 @@ class SecurityController {
     // Apply WAF: write/remove the per-domain rules file (with the correct
     // SecRuleEngine), then regenerate + rewrite the nginx vhost so the
     // `modsecurity on` directive actually lands and reload is validated.
-    private function applyWaf(int $websiteId, bool $enabled, string $mode): void {
+    private function applyWaf(int $websiteId, bool $enabled, string $mode, bool $coalesce = false): void {
         $site = app('db')->selectOne(
             "SELECT w.*, d.`name` AS domain, a.`username` AS username FROM `websites` w
              JOIN `domains` d ON d.id=w.domain_id
@@ -923,7 +923,7 @@ class SecurityController {
             if ($account && $domain) {
                 $nginx = app(\Modules\Websites\Services\NginxConfigGenerator::class)->generate($site, $domain, $account);
                 app('db')->update('websites', ['nginx_config'=>$nginx], '`id`=?',[$websiteId]);
-                app(\Modules\Core\Services\NginxIsolationService::class)->pushVhost($account, $domain['name'], $nginx);
+                app(\Modules\Core\Services\NginxIsolationService::class)->pushVhost($account, $domain['name'], $nginx, $coalesce);
             }
         } catch (\Throwable $e) {
             app('logger')->warning('WAF vhost regenerate failed: '.$e->getMessage());
@@ -933,6 +933,15 @@ class SecurityController {
         if (!$enabled) {
             try { app('provisioning')->execute('waf.rules.delete', ['domain'=>$site['domain']]); }
             catch (\Throwable $e) { app('logger')->warning('WAF rules delete failed: '.$e->getMessage()); }
+        }
+
+        // Customer path: the vhost was written without a global reload so
+        // concurrent tenants coalesce into ONE `systemctl reload nginx`
+        // (audit #23). If the queue is unavailable, reload now — never leave
+        // a written vhost unloaded.
+        if ($coalesce && !\App\Foundation\Provisioning\NginxReloadCoalescer::schedule()) {
+            try { app('provisioning')->execute('nginx.reload', []); }
+            catch (\Throwable $e) { app('logger')->warning('nginx reload after WAF change failed: '.$e->getMessage()); }
         }
     }
 }
