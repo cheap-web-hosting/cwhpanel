@@ -274,6 +274,27 @@ class AppService
             && filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
             return 'Git host must be a public address.';
         }
+        // A hostname is not enough: it can resolve to an internal address
+        // (SSRF, audit #12). Resolve it now and require every answer to be
+        // public; the agent re-resolves and pins the address for the actual
+        // fetch, so a rebinding answer cannot take effect later.
+        if (filter_var($host, FILTER_VALIDATE_IP) === false) {
+            $records = @dns_get_record($host, DNS_A | DNS_AAAA);
+            if (!is_array($records) || $records === []) {
+                return 'Git host could not be resolved.';
+            }
+            foreach ($records as $rec) {
+                $ip = (string) ($rec['ip'] ?? $rec['ipv6'] ?? '');
+                if ($ip === ''
+                    || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+                    return 'Git host must resolve to a public address.';
+                }
+            }
+        }
+        if (str_starts_with($url, 'https://')
+            && (parse_url($url, PHP_URL_USER) !== null || parse_url($url, PHP_URL_PASS) !== null)) {
+            return 'Git URL must not contain credentials.';
+        }
         return null;
     }
 
