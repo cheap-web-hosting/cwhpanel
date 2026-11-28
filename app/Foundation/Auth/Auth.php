@@ -196,10 +196,11 @@ class Auth
             );
             return $stmt->rowCount() > 0;
         } catch (\Throwable $e) {
-            // Pre-migration column missing: log loudly and accept (the code was
-            // still valid), rather than locking every 2FA user out.
-            app('logger')->error('TOTP replay store failed: ' . $e->getMessage());
-            return true;
+            // FAIL CLOSED: a code whose replay state cannot be persisted must
+            // not be accepted a second time (nor at all — the caller re-prompts
+            // and the operator sees the loud error).
+            app('logger')->error('TOTP replay store failed (code refused): ' . $e->getMessage());
+            return false;
         }
     }
 

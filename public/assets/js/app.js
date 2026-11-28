@@ -127,6 +127,13 @@
     });
   });
 
+  // Auto-submit filter controls (CSP-safe replacement for inline onchange).
+  document.querySelectorAll('[data-auto-submit]').forEach(function (el) {
+    el.addEventListener('change', function () {
+      if (el.form) el.form.submit();
+    });
+  });
+
   // Keep feedback visible and connect server validation messages to their fields.
   document.querySelectorAll('[data-error-field]').forEach(function (message, index) {
     var field = Array.from(document.querySelectorAll('input, select, textarea')).find(function (input) {

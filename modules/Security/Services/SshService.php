@@ -204,16 +204,46 @@ class SshService
             return ['ok' => false, 'error' => 'Invalid SSH mode.'];
         }
         if ($mode === 'jailed') {
-            $shell = $this->setShellRaw($username, 'bash');
-            if (!$shell['ok']) {
-                return $shell;
-            }
+            // FAIL CLOSED: keep the shell at nologin until the jail has been
+            // created AND verified. The old order (bash first, jail second)
+            // left an unrestricted host shell behind whenever chroot setup
+            // failed — a restricted mode that silently granted full access.
+            $this->setShellRaw($username, 'nologin');
+
             try {
                 $result = app('provisioning')->execute('ssh.jail.create', ['account' => $username]);
             } catch (\Throwable $e) {
-                return ['ok' => false, 'error' => 'Jail provisioning failed (shell left at full access): ' . $e->getMessage()];
+                $this->setShellRaw($username, 'nologin');
+                return ['ok' => false, 'error' => 'Jail provisioning failed; SSH left disabled: ' . $e->getMessage()];
             }
-            return ['ok' => $result['status'] === 'success'];
+            if (($result['status'] ?? '') !== 'success') {
+                $this->setShellRaw($username, 'nologin');
+                return ['ok' => false, 'error' => 'Jail provisioning failed; SSH left disabled.'];
+            }
+
+            // Verify the chroot really exists and is mounted before enabling a
+            // login shell (a half-built jail is not a jail).
+            $state = $this->jailState($username);
+            if ($state === null || empty($state['mounted']) || empty($state['group'])) {
+                $this->setShellRaw($username, 'nologin');
+                return ['ok' => false, 'error' => 'Jail verification failed; SSH left disabled.'];
+            }
+
+            $shell = $this->setShellRaw($username, 'bash');
+            if (!$shell['ok']) {
+                $this->setShellRaw($username, 'nologin');
+                return ['ok' => false, 'error' => 'Jail is ready but the login shell could not be enabled.'];
+            }
+            // The jail's /etc/passwd was snapshotted while the account was
+            // still nologin; sync it to the host entry now that bash is on.
+            // (A full jail_create re-run is unsafe: chmod on the read-only /usr
+            // bind fails on an already-provisioned jail.)
+            try {
+                app('provisioning')->execute('ssh.jail.passwd.sync', ['account' => $username]);
+            } catch (\Throwable $e) {
+                app('logger')->warning('Jail passwd sync failed for ' . $username . ': ' . $e->getMessage());
+            }
+            return ['ok' => true];
         }
         try {
             app('provisioning')->execute('ssh.jail.destroy', ['account' => $username]);

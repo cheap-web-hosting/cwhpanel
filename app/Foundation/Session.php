@@ -427,7 +427,11 @@ class Session implements SessionHandlerInterface, \SessionUpdateTimestampHandler
                 return 'enc2:' . base64_encode($iv . $tag . $ct);
             }
         }
-        return $plain;
+        // FAIL CLOSED: session payloads can carry mailbox passwords and CSRF
+        // state. Silently storing them in plaintext is worse than an outage.
+        throw new \RuntimeException(
+            'Session encryption unavailable: install the sodium or openssl PHP extension.'
+        );
     }
 
     private function decryptPayload(string $stored): string

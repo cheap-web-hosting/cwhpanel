@@ -2,6 +2,9 @@
 declare(strict_types=1);
 namespace Modules\Backups\Services;
 
+require_once __DIR__ . '/Backup/SqlRestoreGuardTrait.php';
+require_once __DIR__ . '/Backup/RemoteStorageTrait.php';
+
 /**
  * Creates, restores, and deletes account backups via the agent.
  *
@@ -10,6 +13,9 @@ namespace Modules\Backups\Services;
  */
 class BackupService
 {
+    use \Modules\Backups\Services\Backup\SqlRestoreGuardTrait;
+    use \Modules\Backups\Services\Backup\RemoteStorageTrait;
+
     private const BACKUP_DIR = '/var/backups';
 
     public static function typeLabel(string $type): string
@@ -106,7 +112,7 @@ class BackupService
             'SELECT `account_id` FROM `hosting_databases` WHERE `name` = ?',
             [preg_replace('/[^a-z0-9_]/', '', strtolower($database))]
         );
-        return $row !== null ? (int) $row['account_id'] : 0;
+        return $row !== null ? (int) ($row['account_id'] ?? 0) : 0;
     }
 
     /** Seal an artifact in place when the account encrypts backups. */
@@ -398,186 +404,6 @@ class BackupService
         }
 
         return $result['status'] === 'success';
-    }
-
-    /**
-     * Fail-closed client-side twin of the agent's validate_sql_dump: refuse
-     * dumps that manage accounts/privileges, switch schemas, use client-only
-     * commands, or touch system schemas / server-side files. See the agent
-     * implementation (agent/src/ops.rs) for the rationale and limitations.
-     */
-    public static function assertSafeSqlDump(string $path, string $expectedDb): void
-    {
-        if (!is_file($path)) {
-            throw new \RuntimeException('SQL dump not found for restore validation.');
-        }
-        $h = @fopen($path, 'rb');
-        if ($h === false) {
-            throw new \RuntimeException('Cannot open SQL dump for restore validation.');
-        }
-
-        $stmt = '';
-        $trunc = false;
-        $no = 0;
-        $sq = $dq = $bt = $lc = $bc = false;
-        $prev = '';
-        $bad = null;
-
-        while (($line = fgets($h, 65536)) !== false) {
-            $len = strlen($line);
-            for ($i = 0; $i < $len; $i++) {
-                $ch = $line[$i];
-                if (($sq || $dq || $bt) && $ch === '\\') {
-                    continue;
-                }
-                if ($lc) {
-                    if ($ch === "\n") { $lc = false; }
-                    continue;
-                }
-                if ($bc) {
-                    if ($ch === '/' && $prev === '*') { $bc = false; }
-                    $prev = $ch;
-                    continue;
-                }
-                if ($sq) {
-                    if ($ch === "'") { $sq = false; }
-                    $prev = $ch;
-                    continue;
-                }
-                if ($dq) {
-                    if ($ch === '"') { $dq = false; }
-                    $prev = $ch;
-                    continue;
-                }
-                if ($bt) {
-                    if ($ch === '`') { $bt = false; }
-                    else {
-                        // Backtick content is an IDENTIFIER (not a literal):
-                        // keep it in the statement buffer so `USE \`db\`` /
-                        // `CREATE TABLE \`t\`` classify correctly (mirror of
-                        // the agent's validate_sql_dump behavior).
-                        if (strlen($stmt) < 4096) {
-                            $stmt .= $ch;
-                        } elseif (strlen($stmt) === 4096) {
-                            $trunc = true;
-                        }
-                    }
-                    $prev = $ch;
-                    continue;
-                }
-                if ($ch === "'") { $sq = true; $prev = $ch; continue; }
-                if ($ch === '"') { $dq = true; $prev = $ch; continue; }
-                if ($ch === '`') { $bt = true; $prev = $ch; continue; }
-                if ($ch === '#') { $lc = true; $prev = $ch; continue; }
-                if ($ch === '-' && $prev === '-') { $lc = true; $prev = ''; continue; }
-                if ($ch === '*' && $prev === '/') { $bc = true; $prev = ''; continue; }
-                if ($ch === ';') {
-                    $no++;
-                    if (($v = self::classifySqlStatement($stmt, $trunc, $no, $expectedDb)) !== null) {
-                        $bad = $v;
-                        break 2;
-                    }
-                    $stmt = '';
-                    $trunc = false;
-                    $prev = $ch;
-                    continue;
-                }
-                if ($ch === '!' && $prev === '*' && substr($stmt, -2) === '/*') {
-                    $bc = false;
-                }
-                if (strlen($stmt) < 4096) {
-                    $stmt .= $ch;
-                } elseif (strlen($stmt) === 4096) {
-                    $trunc = true;
-                }
-                $prev = $ch;
-            }
-        }
-        fclose($h);
-
-        if ($bad === null) {
-            $no++;
-            $bad = self::classifySqlStatement($stmt, $trunc, $no, $expectedDb);
-        }
-        if ($bad !== null) {
-            throw new \RuntimeException("Unsafe SQL dump: {$bad}");
-        }
-    }
-
-    private static function classifySqlStatement(string $stmt, bool $trunc, int $no, string $expectedDb): ?string
-    {
-        $s = trim($stmt);
-        if ($s === '') {
-            return null;
-        }
-        if (strncmp($s, '/*!', 3) === 0) {
-            $s = substr($s, 3);
-            $s = ltrim($s, '0123456789');
-        }
-        $lower = strtolower($s);
-        $t = ltrim($lower);
-        if (str_starts_with($t, '\\') || str_starts_with($t, 'system ') || str_starts_with($t, 'source ')
-            || $t === 'system' || $t === 'source' || str_starts_with($t, 'delimiter ')
-        ) {
-            return "statement {$no} uses a client-only command";
-        }
-
-        preg_match_all('/[a-z0-9_`]+/', $lower, $m);
-        $tokens = array_values(array_filter($m[0], fn ($x) => $x !== ''));
-        if ($tokens === []) {
-            return null;
-        }
-        $a = $tokens[0];
-        $b = $tokens[1] ?? '';
-
-        if (in_array($a, ['grant', 'revoke', 'install', 'uninstall', 'flush', 'reset'], true)) {
-            return "statement {$no} modifies server privileges/state";
-        }
-        if ((in_array($a, ['create', 'alter', 'drop', 'rename'], true) && $b === 'user')
-            || ($a === 'create' && $b === 'role')
-            || ($a === 'drop' && $b === 'role')
-            || ($a === 'set' && $b === 'role')
-            || ($a === 'set' && $b === 'password')
-        ) {
-            return "statement {$no} manages accounts/roles";
-        }
-        if ($a === 'use' && !self::dbNameMatches($b, $expectedDb)) {
-            return "statement {$no} switches to another database";
-        }
-        if (($a === 'create' || $a === 'drop') && $b === 'database') {
-            $c = $tokens[2] ?? '';
-            if (!self::dbNameMatches($c, $expectedDb)) {
-                return "statement {$no} affects another database";
-            }
-        }
-        if (str_contains($lower, 'mysql.') || str_contains($lower, 'information_schema.')
-            || str_contains($lower, 'performance_schema.') || str_contains($lower, 'sys.')
-        ) {
-            return "statement {$no} references a system schema";
-        }
-        if ($a === 'select') {
-            $prevInto = false;
-            foreach (array_slice($tokens, 1) as $tk) {
-                if ($prevInto && in_array($tk, ['outfile', 'dumpfile'], true)) {
-                    return "statement {$no} writes server-side files";
-                }
-                $prevInto = $tk === 'into';
-                if ($tk === 'load_file') {
-                    return "statement {$no} reads server-side files";
-                }
-            }
-        }
-        if ($trunc) {
-            return "statement {$no} exceeds the scan limit";
-        }
-        return null;
-    }
-
-    private static function dbNameMatches(string $tok, string $expected): bool
-    {
-        $t = trim($tok, "`'\"");
-        $base = explode('.', $t)[0];
-        return strcasecmp($base, $expected) === 0;
     }
 
     public function dbDelete(string $name): bool
@@ -1054,165 +880,4 @@ class BackupService
         return $n;
     }
 
-    /** Build an S3 client for a remote row (unseals the secret). */
-    public function remoteClient(array $remote): S3Client
-    {
-        if (($remote['driver'] ?? '') !== 's3') {
-            throw new \RuntimeException('Unknown remote driver.');
-        }
-        return new S3Client([
-            'endpoint' => $remote['endpoint'],
-            'bucket' => $remote['bucket'],
-            'region' => $remote['region'] ?? 'us-east-1',
-            'key' => $remote['access_key'],
-            'secret' => RemoteSecret::open((string) $remote['secret_encrypted']),
-        ]);
-    }
-
-    public function remotePrefix(array $remote, string $username): string
-    {
-        $prefix = trim((string) ($remote['path_prefix'] ?? ''), '/');
-        $prefix = $prefix !== '' ? $prefix . '/' : '';
-        return $prefix . $username . '/';
-    }
-
-    /**
-     * Upload every local artifact of a backup row. Returns artifact count.
-     * Records backup_copies rows (idempotent per path).
-     */
-    public function uploadBackup(int $accountId, int $backupId, int $remoteId): int
-    {
-        $backup = app('db')->selectOne(
-            'SELECT * FROM `backups` WHERE `id` = ? AND `account_id` = ?',
-            [$backupId, $accountId]
-        );
-        if ($backup === null || ($backup['status'] ?? '') !== 'completed') {
-            throw new \RuntimeException('Backup not available for upload.');
-        }
-        $remote = app('db')->selectOne(
-            'SELECT * FROM `backup_remotes` WHERE `id` = ? AND `account_id` = ?',
-            [$remoteId, $accountId]
-        );
-        if ($remote === null) {
-            throw new \RuntimeException('Remote storage not found.');
-        }
-        $account = $this->account($accountId);
-        $client = $this->remoteClient($remote);
-        $prefix = $this->remotePrefix($remote, (string) ($account['username'] ?? 'unknown'));
-        $n = 0;
-        foreach ($this->artifacts($backup) as $a) {
-            $local = self::BACKUP_DIR . '/' . $a['file'];
-            $dest = $prefix . $a['file'];
-            $client->put($local, $dest);
-            $exists = app('db')->selectOne(
-                'SELECT `id` FROM `backup_copies` WHERE `backup_id` = ? AND `remote_id` = ? AND `remote_path` = ?',
-                [$backupId, $remoteId, $dest]
-            );
-            if ($exists === null) {
-                app('db')->insert('backup_copies', [
-                    'backup_id' => $backupId, 'remote_id' => $remoteId,
-                    'remote_path' => $dest, 'size_bytes' => $a['size'],
-                    'status' => 'completed',
-                    'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s'),
-                ]);
-            }
-            $n++;
-        }
-        if ($n === 0) {
-            throw new \RuntimeException('No local artifacts to upload.');
-        }
-        return $n;
-    }
-
-    /**
-     * Keep the newest $keep remote objects under the account prefix (keysort
-     * desc = newest first thanks to the sortable Ymd-His names). Returns the
-     * deleted count. keep=0 empties the prefix entirely.
-     */
-    public function pruneRemote(int $remoteId, int $keep): int
-    {
-        $remote = app('db')->selectOne('SELECT * FROM `backup_remotes` WHERE `id` = ?', [$remoteId]);
-        if ($remote === null) {
-            throw new \RuntimeException('Remote storage not found.');
-        }
-        $account = $this->account((int) $remote['account_id']);
-        $client = $this->remoteClient($remote);
-        $prefix = $this->remotePrefix($remote, (string) ($account['username'] ?? 'unknown'));
-        $keys = $client->list($prefix, 10000);
-        rsort($keys, SORT_STRING);
-        $n = 0;
-        foreach (array_slice($keys, max(0, $keep)) as $gone) {
-            $client->delete($gone);
-            app('db')->delete('backup_copies', '`remote_id` = ? AND `remote_path` = ?', [$remoteId, $gone]);
-            $n++;
-        }
-        return $n;
-    }
-
-    /**
-     * Fetch a remote copy back into /var/backups for restore (ownership
-     * chain verified: copy → backup → account). Skips download when the
-     * artifact already exists locally. Returns the local filename.
-     */
-    public function fetchCopy(int $accountId, int $copyId): string
-    {
-        $copy = app('db')->selectOne(
-            'SELECT c.*, b.`account_id`, b.`type` FROM `backup_copies` c
-             JOIN `backups` b ON b.`id` = c.`backup_id`
-             WHERE c.`id` = ? AND b.`account_id` = ?',
-            [$copyId, $accountId]
-        );
-        if ($copy === null) {
-            throw new \RuntimeException('Remote copy not found.');
-        }
-        $remote = app('db')->selectOne(
-            'SELECT * FROM `backup_remotes` WHERE `id` = ? AND `account_id` = ?',
-            [(int) $copy['remote_id'], $accountId]
-        );
-        if ($remote === null) {
-            throw new \RuntimeException('Remote storage not found.');
-        }
-        $file = basename((string) $copy['remote_path']);
-        if ($file === '' || str_contains($file, '/') || !preg_match('/^[A-Za-z0-9._-]+$/', $file)) {
-            throw new \RuntimeException('Unsafe remote filename.');
-        }
-        $local = self::BACKUP_DIR . '/' . $file;
-        $real = realpath($local);
-        if ($real !== false && str_starts_with($real, self::BACKUP_DIR . '/') && is_file($real)) {
-            return $file; // already here (e.g. retention kept it)
-        }
-        $tmp = $local . '.dl-' . getmypid();
-        try {
-            $this->remoteClient($remote)->get((string) $copy['remote_path'], $tmp);
-            rename($tmp, $local);
-        } catch (\Throwable $e) {
-            @unlink($tmp);
-            throw $e;
-        }
-        return $file;
-    }
-
-    /**
-     * Connectivity + credential proof for a remote row: PUT a probe object,
-     * HEAD it, DELETE it. Returns a summary (server/version when visible).
-     */
-    public function testRemote(array $remote): string
-    {
-        $client = $this->remoteClient($remote);
-        $probe = 'cwhpanel-probe-' . bin2hex(random_bytes(6)) . '.txt';
-        $account = $this->account((int) ($remote['account_id'] ?? 0));
-        $prefix = $this->remotePrefix($remote, (string) ($account['username'] ?? 'probe'));
-        $tmp = tempnam(sys_get_temp_dir(), 's3probe');
-        file_put_contents($tmp, 'cwhpanel remote-storage probe ' . date('c'));
-        try {
-            $client->put($tmp, $prefix . $probe, 'text/plain');
-            if (!$client->exists($prefix . $probe)) {
-                throw new \RuntimeException('probe object not visible after PUT');
-            }
-            $client->delete($prefix . $probe);
-        } finally {
-            @unlink($tmp);
-        }
-        return 'PUT+HEAD+DELETE round-trip ok';
-    }
 }

@@ -182,7 +182,7 @@ class DnsSettings
                     $db->insert('settings', ['key' => $key, 'value' => $value, 'updated_at' => date('Y-m-d H:i:s')]);
                 }
             } catch (\Throwable $e) {
-                // best effort
+                try { app('logger')->warning("DnsSettings::write({$key}) failed: " . $e->getMessage()); } catch (\Throwable) {}
             }
         }
     }

@@ -91,6 +91,7 @@ class CronService
             try {
                 app('provisioning')->execute('cron.jailed.clear', ['username' => $username]);
             } catch (\Throwable $e) {
+                try { app('logger')->warning("cron.jailed.clear failed for {$username}: " . $e->getMessage()); } catch (\Throwable) {}
             }
         } else {
             $lines = [];

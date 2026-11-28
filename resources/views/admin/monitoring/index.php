@@ -16,7 +16,7 @@ $cpuPct = (int) min(100, max(0, round(($load1 / $cores) * 100)));
 <h2 class="section-title">Account resource limits</h2>
 <div class="table-wrap"><table class="table"><thead><tr><th>Account</th><th>Package</th><th>Disk</th><th>Memory</th><th>CPU</th><th>Traffic (req / bytes)</th><th>Status</th></tr></thead>
 <tbody><?php if (empty($accounts)): ?><?= empty_state(7, 'No accounts.') ?>
-<?php else: foreach ($accounts as $a): $tr = $traffic[(int) $a['id']] ?? null; ?><tr><td><?= e($a['username']) ?></td><td><?= e($a['package_name']??'—') ?></td>
+<?php else: foreach ($accounts as $a): $tr = $traffic[(int) ($a['id'] ?? 0)] ?? null; ?><tr><td><?= e($a['username']) ?></td><td><?= e($a['package_name']??'—') ?></td>
 <td><?= e(SystemInfo::formatBytes(((float)($a['disk_quota_mb']??0)) * 1024 * 1024)) ?></td><td><?= e(SystemInfo::formatBytes(((float)($a['max_memory_mb']??0)) * 1024 * 1024)) ?></td><td><?= e($a['max_cpu_percent']??0) ?>%</td><td><?= $tr === null ? '—' : e((string) $tr['requests']) . ' / ' . e(SystemInfo::formatBytes((float) $tr['bytes'])) ?></td>
 <td><?= $a['status']==='active'?'<span class="status status-active">Active</span>':'<span class="status status-disabled">'.e($a['status']).'</span>' ?></td></tr>
 <?php endforeach; endif; ?></tbody></table></div>

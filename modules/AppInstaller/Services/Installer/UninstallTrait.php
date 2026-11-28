@@ -140,7 +140,7 @@ trait UninstallTrait
                 }
             }
         } catch (\Throwable $e) {
-            // Non-fatal: leftovers are visible (and deletable) under Cron.
+            $this->log($installationId, 'warning', 'Could not remove cron jobs (' . $e->getMessage() . ')');
         }
 
         // Remove WAF exclusions this install added (recorded in its config):
@@ -168,12 +168,13 @@ trait UninstallTrait
                             $waf->removeExclusion((int) $siteRow['id'], $ruleId);
                             $this->log($installationId, 'info', "Re-enabled WAF rule {$ruleId}.");
                         } catch (\Throwable $e) {
+                            $this->log($installationId, 'warning', "Could not re-enable WAF rule {$ruleId} (" . $e->getMessage() . ')');
                         }
                     }
                 }
             }
         } catch (\Throwable $e) {
-            // Non-fatal: leftovers are visible under Websites → WAF.
+            $this->log($installationId, 'warning', 'Could not clean up WAF exclusions (' . $e->getMessage() . ')');
         }
 
         // Drop a per-directory PHP pin this install created: a row the
@@ -237,8 +238,7 @@ trait UninstallTrait
                     app(\Modules\Websites\Services\PrivacyService::class)->regenerate((int) $siteRow['id']);
                 }
             } catch (\Throwable $e) {
-                // Non-fatal: a stale pin/location is harmless and removable
-                // by re-saving the website.
+                $this->log($installationId, 'warning', 'Could not refresh website after PHP dir cleanup (' . $e->getMessage() . ')');
             }
         }
 
@@ -251,7 +251,7 @@ trait UninstallTrait
             try {
                 app(\Modules\Websites\Services\PrivacyService::class)->regenerate($websiteId);
             } catch (\Throwable $e) {
-                // Non-fatal: admin can re-save the website to retry.
+                $this->log($installationId, 'warning', 'Could not regenerate mount website (' . $e->getMessage() . ')');
             }
         }
     }

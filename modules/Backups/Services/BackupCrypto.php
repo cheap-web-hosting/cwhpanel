@@ -57,17 +57,22 @@ class BackupCrypto
         }
         try {
             fwrite($out, self::MAGIC . $header);
-            while (!feof($in)) {
-                $chunk = fread($in, self::CHUNK);
-                if ($chunk === false) {
+            // Read one chunk ahead: `feof()` is still false right after a read
+            // that ended exactly at EOF, which used to leave the final chunk
+            // untagged (and therefore unverifiable) for any file whose length
+            // is a multiple of CHUNK.
+            $pending = fread($in, self::CHUNK);
+            if ($pending === false) {
+                throw new \RuntimeException('Read failed.');
+            }
+            while (true) {
+                $next = fread($in, self::CHUNK);
+                if ($next === false) {
                     throw new \RuntimeException('Read failed.');
                 }
-                if ($chunk === '' && feof($in)) {
-                    break;
-                }
-                $last = feof($in);
+                $last = $next === '';
                 $frame = sodium_crypto_secretstream_xchacha20poly1305_push(
-                    $state, $chunk, '', $last
+                    $state, $pending, '', $last
                         ? SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL
                         : SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE
                 );
@@ -77,6 +82,7 @@ class BackupCrypto
                 if ($last) {
                     break;
                 }
+                $pending = $next;
             }
         } finally {
             fclose($in);
@@ -109,6 +115,7 @@ class BackupCrypto
             try {
                 // Each push frame adds ABYTES overhead to a CHUNK plaintext read.
                 $frameLen = self::CHUNK + SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_ABYTES;
+                $sawFinal = false;
                 while (!feof($in)) {
                     $frame = fread($in, $frameLen);
                     if ($frame === false || ($frame === '' && !feof($in))) {
@@ -126,11 +133,21 @@ class BackupCrypto
                         throw new \RuntimeException('Write failed.');
                     }
                     if ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL) {
+                        $sawFinal = true;
                         break;
                     }
                 }
-            } finally {
+                if (!$sawFinal) {
+                    // A truncated stream authenticates frame by frame but has
+                    // no final tag: refuse it rather than restoring an
+                    // incomplete backup.
+                    throw new \RuntimeException('Truncated backup: missing final authentication tag.');
+                }
+            } catch (\Throwable $e) {
                 fclose($out);
+                @unlink($outPath);
+                throw $e;
+            } finally {
                 sodium_memzero($state);
             }
         } finally {

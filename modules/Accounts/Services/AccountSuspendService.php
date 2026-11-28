@@ -243,6 +243,7 @@ class AccountSuspendService
         try {
             app('db')->update('accounts', ['suspend_state' => null, 'updated_at' => date('Y-m-d H:i:s')], '`id` = ?', [$accountId]);
         } catch (\Throwable $e) {
+            try { app('logger')->warning("Unsuspend failed to clear suspend_state for {$username}: " . $e->getMessage()); } catch (\Throwable) {}
         }
 
         if ($state['ftp'] !== []) {

@@ -245,6 +245,7 @@ class NginxIsolationService
                     app(\Modules\Websites\Services\VhostWriter::class)->write($domain['name'], (string) $oldConfig);
                 }
             } catch (\Throwable $ignored) {
+                try { app('logger')->warning('Custom nginx rollback write failed for ' . $domain['name'] . ': ' . $ignored->getMessage()); } catch (\Throwable) {}
             }
             throw new \RuntimeException($e->getMessage());
         }

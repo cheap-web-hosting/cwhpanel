@@ -544,6 +544,7 @@ class AccountController
                 try {
                     app('db')->delete('ftp_accounts', '`id` = ?', [(int) $row['id']]);
                 } catch (\Throwable $e) {
+                    app('logger')->warning('Terminate FTP row delete failed for ' . $row['username'] . ': ' . $e->getMessage());
                 }
             }
         } catch (\Throwable $e) {

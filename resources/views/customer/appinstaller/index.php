@@ -4,13 +4,13 @@
     <h2 class="panel-title">Available applications</h2>
     <form method="get" action="<?= e(url('panel/appinstaller')) ?>" class="filter-bar" style="border-bottom:0;padding:0">
       <input class="input" type="text" name="q" value="<?= e($q) ?>" placeholder="Search applications…" style="min-width:200px">
-      <select class="input" name="category" onchange="this.form.submit()">
+      <select class="input" name="category" data-auto-submit>
         <option value="all" <?= $activeCategory === 'all' ? 'selected' : '' ?>>All categories</option>
         <?php foreach ($categories as $c): ?>
           <option value="<?= e($c['slug']) ?>" <?= $activeCategory === $c['slug'] ? 'selected' : '' ?>><?= e($c['name']) ?></option>
         <?php endforeach; ?>
       </select>
-      <select class="input" name="tech" onchange="this.form.submit()">
+      <select class="input" name="tech" data-auto-submit>
         <option value="all" <?= $activeTech === 'all' ? 'selected' : '' ?>>All technologies</option>
         <?php foreach ($techOptions as $tv => $tlabel): ?>
           <option value="<?= e($tv) ?>" <?= $activeTech === $tv ? 'selected' : '' ?>><?= e($tlabel) ?></option>

@@ -159,6 +159,7 @@ class PanelUpdateService
                 $db->insert('settings', ['key' => self::STATUS_KEY, 'value' => $value, 'updated_at' => date('Y-m-d H:i:s')]);
             }
         } catch (\Throwable $e) {
+            try { app('logger')->warning('PanelUpdateService::putStatus failed: ' . $e->getMessage()); } catch (\Throwable) {}
         }
     }
 
@@ -433,17 +434,25 @@ class PanelUpdateService
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT_MS => $timeoutMs,
                 CURLOPT_HTTPHEADER => $headers,
-                CURLOPT_FOLLOWLOCATION => true,
+                // Explicit TLS verification + HTTPS-only + no cross-origin
+                // redirect of the bearer token.
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+                CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+                CURLOPT_FOLLOWLOCATION => $token === '',
             ]);
             $body = curl_exec($ch);
             $errno = curl_errno($ch);
             curl_close($ch);
             return $errno === 0 && is_string($body) && $body !== '' ? $body : null;
         }
-        $opts = ['http' => ['method' => 'GET', 'header' => implode("\r\n", $headers), 'timeout' => $timeoutMs / 1000]];
-        $ctx = stream_context_create(['http' => $opts, 'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]]);
-        $body = @file_get_contents($url, false, $ctx);
-        return is_string($body) && $body !== '' ? $body : null;
+        // No cURL: refuse instead of silently downgrading TLS. The stream
+        // fallback used to disable certificate/hostname verification AND
+        // forward the Authorization header across redirects; a missing
+        // extension must never weaken update transport security.
+        app('logger')->error('panel update: php-curl is required for updates; refusing insecure stream fallback');
+        return null;
     }
 
     /** Minimal HTTPS GET (curl if available, else file_get_contents). */
@@ -464,16 +473,24 @@ class PanelUpdateService
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT_MS => $timeoutMs,
                 CURLOPT_HTTPHEADER => $headers,
-                CURLOPT_FOLLOWLOCATION => true,
+                // Explicit TLS verification + HTTPS-only + no cross-origin
+                // redirect of the bearer token.
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+                CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+                CURLOPT_FOLLOWLOCATION => $token === '',
             ]);
             $body = curl_exec($ch);
             $errno = curl_errno($ch);
             curl_close($ch);
             return $errno === 0 && is_string($body) && $body !== '' ? $body : null;
         }
-        $opts = ['http' => ['method' => 'GET', 'header' => implode("\r\n", $headers), 'timeout' => $timeoutMs / 1000]];
-        $ctx = stream_context_create(['http' => $opts, 'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]]);
-        $body = @file_get_contents($url, false, $ctx);
-        return is_string($body) && $body !== '' ? $body : null;
+        // No cURL: refuse instead of silently downgrading TLS. The stream
+        // fallback used to disable certificate/hostname verification AND
+        // forward the Authorization header across redirects; a missing
+        // extension must never weaken update transport security.
+        app('logger')->error('panel update: php-curl is required for updates; refusing insecure stream fallback');
+        return null;
     }
 }
