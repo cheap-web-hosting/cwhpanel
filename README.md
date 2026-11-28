@@ -845,6 +845,27 @@ curl -s -o /dev/null -w '%{http_code}\n' https://<server>/panel/login
 | Firewall / bans | `fail2ban-client status` |
 | Panel audit log | **Admin → Security → Audit log** |
 
+### Updating the panel itself
+
+Admin → Server → Updates shows the installed panel version and the latest
+release. Applying an update downloads the signed runtime bundle, verifies its
+checksum and signature, backs up the current tree, swaps it in, runs
+migrations and smoke-tests the panel.
+
+**Agent reinstall (one-time, when updating from 1.1.21 or older).** Older
+releases replaced only the PHP tree. The privileged agent is a native binary,
+so after such an update run:
+
+```bash
+sudo bash /opt/cwhpanel/agent/install-packaged.sh
+sudo systemctl restart cwhpanel-agent
+```
+
+`install-packaged.sh` merges the existing peer allowlist, so the panel keeps
+access. Newer releases (updater with agent hand-off) verify the bundled
+binary against `BUILD-MANIFEST.json`, install it and schedule the agent
+restart automatically — the note in the update result says which happened.
+
 ### Updates
 
 **Admin → Server → Updates** shows pending packages and lets you choose:
