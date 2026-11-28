@@ -53,6 +53,43 @@ class WebhookPolicy
         return null;
     }
 
+    /**
+     * Curl options that pin a checked webhook URL's host to a public address
+     * resolved NOW (closes the check-to-connect DNS-rebinding window) and
+     * refuse redirects (a public host must not bounce the request inward).
+     * Throws when a hostname no longer resolves to any public address.
+     *
+     * @return array<int,mixed>
+     */
+    public static function curlPinnedOptions(string $url): array
+    {
+        $opts = [CURLOPT_FOLLOWLOCATION => false, CURLOPT_MAXREDIRS => 0];
+        $parts = parse_url($url);
+        $host = (string) ($parts['host'] ?? '');
+        $scheme = strtolower((string) ($parts['scheme'] ?? 'http'));
+        $port = (int) ($parts['port'] ?? ($scheme === 'https' ? 443 : 80));
+        $bare = trim($host, '[]');
+        if ($bare === '') {
+            throw new \RuntimeException('webhook URL has no host');
+        }
+        if (filter_var($bare, FILTER_VALIDATE_IP) !== false) {
+            return $opts;
+        }
+        $ip = null;
+        foreach (self::resolve($bare) as $candidate) {
+            if (filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false) {
+                $ip = $candidate;
+                break;
+            }
+        }
+        if ($ip === null) {
+            throw new \RuntimeException('webhook host no longer resolves to a public address');
+        }
+        $opts[CURLOPT_RESOLVE] = [$host . ':' . $port . ':' . $ip];
+
+        return $opts;
+    }
+
     /** @return array<int,string> resolved A + AAAA addresses (empty = unresolvable) */
     private static function resolve(string $host): array
     {

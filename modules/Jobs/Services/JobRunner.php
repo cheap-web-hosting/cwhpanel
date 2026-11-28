@@ -198,7 +198,7 @@ class JobRunner
         }
 
         $ch = curl_init();
-        curl_setopt_array($ch, [
+        $opts = [
             CURLOPT_URL => $url,
             CURLOPT_POST => true,
             CURLOPT_RETURNTRANSFER => true,
@@ -206,7 +206,11 @@ class JobRunner
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
             CURLOPT_POSTFIELDS => json_encode($payload),
-        ]);
+        ];
+        // Pin the address validated a moment ago (DNS rebinding) and refuse
+        // redirects; a failure here rides the job backoff, never a delivery.
+        $opts += \Modules\Api\Services\WebhookPolicy::curlPinnedOptions($url);
+        curl_setopt_array($ch, $opts);
 
         $response = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);

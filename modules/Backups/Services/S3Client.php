@@ -182,23 +182,29 @@ class S3Client
      * hermetic test stub). Mirrors WebhookPolicy::checkUrl; duplicated here
      * so the S3 client never depends on Api-module internals.
      */
-    private function assertSafeRequestHost(string $host, string $scheme): ?string
+    /**
+     * Fail-closed request-time host check: the host we are about to connect
+     * to must be public (or an explicit loopback literal under http — the
+     * hermetic test stub). Returns [error, resolved public IP for a hostname]
+     * so the caller can pin the connection and close the DNS-rebinding window.
+     */
+    private function checkRequestHost(string $host, string $scheme): array
     {
         if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
             $host = substr($host, 1, -1);
         }
         if ($host === '') {
-            return 'S3 URL has no host.';
+            return ['S3 URL has no host.', null];
         }
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
             $loopback = str_starts_with($host, '127.') || $host === '::1';
             if ($scheme === 'http' && $loopback) {
-                return null;
+                return [null, null];
             }
             if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false) {
-                return null;
+                return [null, null];
             }
-            return 'S3 endpoint is not a public address at request time.';
+            return ['S3 endpoint is not a public address at request time.', null];
         }
         $ips = [];
         foreach ((array) @gethostbynamel($host) as $ip) {
@@ -213,14 +219,19 @@ class S3Client
             }
         }
         if ($ips === []) {
-            return 'S3 endpoint does not resolve.';
+            return ['S3 endpoint does not resolve.', null];
         }
+        $first = null;
         foreach ($ips as $ip) {
             if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
-                return 'S3 endpoint resolves to a private address.';
+                return ['S3 endpoint resolves to a private address.', null];
+            }
+            if ($first === null) {
+                $first = $ip;
             }
         }
-        return null;
+
+        return [null, $first];
     }
 
     private function request(string $method, string $object, array $params = [], array $headers = [], $bodyFp = null, int $bodyLen = 0, $outFp = null): array
@@ -270,8 +281,9 @@ class S3Client
         // the create-time check in CustomerBackupController can be bypassed
         // by DNS rebinding / a hostname that changes after save. Explicit
         // loopback literals under http stay allowed (hermetic test stub).
-        if (($err = $this->assertSafeRequestHost($host, (string) ($urlParts['scheme'] ?? 'https'))) !== null) {
-            throw new \RuntimeException($err);
+        [$hostError, $pinIp] = $this->checkRequestHost($host, (string) ($urlParts['scheme'] ?? 'https'));
+        if ($hostError !== null) {
+            throw new \RuntimeException($hostError);
         }
         $port = isset($urlParts['port']) ? (int) $urlParts['port'] : 0;
         $defaultPort = (($urlParts['scheme'] ?? 'https') === 'http') ? 80 : 443;
@@ -319,14 +331,21 @@ class S3Client
             }
             $curlHeaders[] = "{$k}: {$v}";
         }
-        curl_setopt_array($ch, [
+        $curlOpts = [
             CURLOPT_URL => $url,
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_HTTPHEADER => $curlHeaders,
             CURLOPT_RETURNTRANSFER => $outFp === null,
             CURLOPT_TIMEOUT => $this->timeout,
             CURLOPT_NOBODY => $method === 'HEAD',
-        ]);
+        ];
+        if ($pinIp !== null) {
+            // Connect to the address validated above, not a re-resolved one.
+            $pinPort = isset($urlParts['port']) ? (int) $urlParts['port']
+                : (($urlParts['scheme'] ?? 'https') === 'http' ? 80 : 443);
+            $curlOpts[CURLOPT_RESOLVE] = [$host . ':' . $pinPort . ':' . $pinIp];
+        }
+        curl_setopt_array($ch, $curlOpts);
         if ($bodyFp !== null) {
             curl_setopt($ch, CURLOPT_UPLOAD, true);
             curl_setopt($ch, CURLOPT_INFILE, $bodyFp);
