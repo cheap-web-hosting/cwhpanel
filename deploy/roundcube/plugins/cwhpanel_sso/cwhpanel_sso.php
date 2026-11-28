@@ -17,15 +17,28 @@
  *  and all logging run through unmodified core code. The cookie is consumed
  *  (expired) immediately after a successful SSO authenticate.
  *
- *  Token format: <b64url(email)>.<expiry-unix>.<hmac-hex>
- *    hmac = HMAC-SHA256(email . '|' . expiry, cwhpanel_sso_key)
+ *  Token format: <b64url(email)>.<expiry-unix>.<nonce>.<hmac-hex>
+ *    hmac = HMAC-SHA256(email . '|' . expiry . '|' . nonce, cwhpanel_sso_key)
  *  Tokens expire after 60 seconds. The mailbox address inside is validated
  *  as an email; unknown addresses simply fail IMAP auth like a bad password.
+ *
+ *  Replay prevention: the panel stores the nonce as a file in Roundcube's
+ *  temp dir before redirecting, and this plugin UNLINKS it here. unlink() is
+ *  atomic — exactly one request can consume it — so a captured cookie works
+ *  once, never twice, even inside the TTL. Cookie expiry is not replay
+ *  prevention. Legacy 3-part tokens (from a panel older than the nonce
+ *  release) still validate so the plugin can be deployed first.
  *
  * License: GPL-3.0-or-later (Roundcube plugin exception applies).
  */
 class cwhpanel_sso extends rcube_plugin
 {
+    /**
+     * Nonce support marker: the panel only issues single-use tokens when the
+     * installed plugin source carries CWH_SSO_NONCE. Bump on format changes.
+     */
+    public const CWH_SSO_NONCE = 1;
+
     public $task = 'login|mail';
 
     public function init()
@@ -51,7 +64,8 @@ class cwhpanel_sso extends rcube_plugin
             return $args;
         }
 
-        $email = $this->validate($tok);
+        $nonce = null;
+        $email = $this->validate($tok, $nonce);
         if ($email === null) {
             return $args;
         }
@@ -59,6 +73,13 @@ class cwhpanel_sso extends rcube_plugin
         $rc = rcmail::get_instance();
         $pass = (string) $rc->config->get('cwhpanel_master_pass', '');
         if ($pass === '') {
+            return $args;
+        }
+
+        // Single-use: consume the nonce before any session is created. A
+        // false here means this token was already redeemed (or never issued
+        // by this server) — refuse silently and fall through to the form.
+        if ($nonce !== null && !$this->consumeNonce($nonce)) {
             return $args;
         }
 
@@ -93,15 +114,26 @@ class cwhpanel_sso extends rcube_plugin
     }
 
     /**
-     * Validate an SSO token. Returns the mailbox address or null.
+     * Validate an SSO token. Returns the mailbox address or null; on a
+     * nonce-bearing token the nonce is returned through $nonce (the caller
+     * must consume it before authenticating).
      */
-    private function validate($tok)
+    private function validate($tok, &$nonce = null)
     {
-        $parts = explode('.', $tok, 3);
-        if (count($parts) !== 3) {
+        $parts = explode('.', $tok);
+        if (count($parts) === 4) {
+            list($b64, $exp, $nc, $sig) = $parts;
+            if (!ctype_xdigit($nc) || strlen($nc) !== 32) {
+                return null;
+            }
+            $nonce = $nc;
+        } elseif (count($parts) === 3) {
+            // Legacy token from a panel that predates nonce support.
+            list($b64, $exp, $sig) = $parts;
+            $nonce = null;
+        } else {
             return null;
         }
-        list($b64, $exp, $sig) = $parts;
         if (!ctype_digit($exp) || (int) $exp < time()) {
             return null;
         }
@@ -117,11 +149,25 @@ class cwhpanel_sso extends rcube_plugin
         if ($key === '') {
             return null;
         }
-        $want = hash_hmac('sha256', $email . '|' . $exp, $key);
+        $payload = $nonce === null ? $email . '|' . $exp : $email . '|' . $exp . '|' . $nonce;
+        $want = hash_hmac('sha256', $payload, $key);
         if (!hash_equals($want, strtolower($sig))) {
             return null;
         }
         return $email;
+    }
+
+    /**
+     * Atomically redeem a nonce: the panel created the file before the
+     * redirect and unlink() succeeds for exactly one caller. A missing file
+     * (already used, never issued, pruned) refuses the login.
+     */
+    private function consumeNonce($nonce)
+    {
+        $tmp = (string) rcmail::get_instance()->config->get('temp_dir', sys_get_temp_dir());
+        $path = rtrim($tmp, '/') . '/cwhpanel-sso/' . $nonce;
+
+        return @unlink($path);
     }
 
     /**

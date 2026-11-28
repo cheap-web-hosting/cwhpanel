@@ -35,4 +35,4 @@ php_admin_value[expose_php] = Off
 ; /proc is read-only pseudo-filesystem telemetry (loadavg, meminfo, uptime,
 ; cpuinfo) rendered by the admin dashboard / SystemInfo — denying it silently
 ; zeroed every System card. It grants no write access and no real file data.
-php_admin_value[open_basedir] = /opt/cwhpanel:/usr/share/php:/var/lib/php:/usr/share/roundcubemail:/usr/share/phpMyAdmin:/var/backups:/tmp:/run:/etc/pki/tls:/var/tmp:/etc:/usr/lib:/usr/bin:/usr/sbin:/sbin:/proc
+php_admin_value[open_basedir] = /opt/cwhpanel:/usr/share/php:/var/lib/php:/usr/share/roundcubemail:/var/lib/roundcube:/usr/share/phpMyAdmin:/var/backups:/tmp:/run:/etc/pki/tls:/var/tmp:/etc:/usr/lib:/usr/bin:/usr/sbin:/sbin:/proc

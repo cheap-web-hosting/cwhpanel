@@ -54,8 +54,15 @@ echo "${RC_SHA256}  ${ARCHIVE}" | (cd "$tmp" && sha256sum -c -) >/dev/null \
 
 log "Installing to ${RC_DIR}..."
 rm -rf "$RC_DIR"
-tar xzf "$tmp/$ARCHIVE" -C "$tmp"
+# NEVER let tar preserve the tarball's numeric ownership: the upstream archive
+# is packed by uid/gid 1000, and `tar` as root would hand the whole webmail
+# code tree to whichever LOCAL user owns that uid (on a hosting box: the first
+# customer account). That is a customer->panel privilege escalation — the
+# panel pool executes this PHP. Extract unowned, then pin root ownership.
+tar --no-same-owner --no-same-permissions -xzf "$tmp/$ARCHIVE" -C "$tmp"
 mv "$tmp/roundcubemail-${RC_VERSION}" "$RC_DIR"
+chown -R root:root "$RC_DIR"
+chmod -R go-w "$RC_DIR"
 rm -rf "$RC_DIR/installer"
 
 log "Installing cwhpanel SSO plugin..."
@@ -126,6 +133,19 @@ cat > "$RC_DIR/config/config.inc.php" <<EOF
 EOF
 chown "root:${PANEL_GROUP}" "$RC_DIR/config/config.inc.php"
 chmod 640 "$RC_DIR/config/config.inc.php"
+
+# The panel FPM pool serves /roundcube; its open_basedir must include the
+# Roundcube temp dir or the SSO nonce (single-use token, audit #11) cannot be
+# written/consumed by panel requests. Patch the live pool conf idempotently so
+# re-running this installer is the one-step remediation on existing hosts.
+PANEL_POOL_CONF="${PANEL_POOL_CONF:-/etc/php-fpm-panel.d/panel.conf}"
+if [ -f "$PANEL_POOL_CONF" ] && ! grep -q "open_basedir.*${RC_DATA}" "$PANEL_POOL_CONF"; then
+    if grep -q "php_admin_value\[open_basedir\]" "$PANEL_POOL_CONF"; then
+        log "Adding ${RC_DATA} to the panel pool open_basedir..."
+        sed -i "s#php_admin_value\[open_basedir\] = \(.*\)#php_admin_value[open_basedir] = \1:${RC_DATA}#" "$PANEL_POOL_CONF"
+        systemctl reload-or-restart php-fpm-panel >/dev/null 2>&1 || true
+    fi
+fi
 
 log "Preparing data dirs ${RC_DATA}..."
 mkdir -p "$RC_DATA/temp" "$RC_DATA/logs"
