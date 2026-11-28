@@ -375,8 +375,11 @@ class AppService
     }
 
     /**
-     * Resolve the latest LTS node release for a major: [exact, sha256].
+     * Resolve the latest node release for a major: [exact, sha256].
      * Fetched live from nodejs.org (TLS); throws on any failure.
+     * Majors 20/22 resolve the latest LTS; 26 (the panel default, which may
+     * ride Current before its LTS promotion) resolves the latest stable
+     * release of the major, preferring LTS when present.
      *
      * @return array{0:string, 1:string}
      */
@@ -392,21 +395,25 @@ class AppService
             throw new \RuntimeException('Node release index unreachable.');
         }
         $exact = null;
+        $fallback = null;
         foreach ($rows as $row) {
             $ver = ltrim((string) ($row['version'] ?? ''), 'v');
-            if (!preg_match('/^' . preg_quote($major, '/') . '\.\d+\.\d+$/', $ver)) {
+            if (!str_starts_with($ver, $major . '.') || substr_count($ver, '.') !== 2) {
                 continue;
             }
-            // 20/22 are LTS-only; 26 is the primary line and may be a stable
-            // non-LTS release. The index is newest-first.
-            if ($major !== '26' && empty($row['lts'])) {
-                continue;
+            if (!empty($row['lts'])) {
+                $exact = $ver;
+                break;
             }
-            $exact = $ver;
-            break;
+            if ($major === '26' && $fallback === null) {
+                $fallback = $ver;
+            }
         }
         if ($exact === null) {
-            throw new \RuntimeException('No stable release found for Node ' . $major . '.');
+            $exact = $fallback;
+        }
+        if ($exact === null) {
+            throw new \RuntimeException('No release found for Node ' . $major . '.');
         }
         $sums = @file_get_contents("https://nodejs.org/dist/v{$exact}/SHASUMS256.txt", false, $ctx);
         if (!is_string($sums) || !preg_match('/^([a-f0-9]{64})\s+node-v' . preg_quote($exact, '/') . '-linux-x64\.tar\.xz$/m', $sums, $m)) {
