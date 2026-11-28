@@ -31,7 +31,7 @@ SSL — and then shows you how to use it day to day.
 > - Found a bug or a security issue? Open an issue on GitHub — please do not
 >   post exploit details publicly.
 >
-> Current release: **1.1.39** · tested on Rocky Linux 9.7 and 9.9 with SELinux
+> Current release: **1.1.40** · tested on Rocky Linux 9.7 and 9.9 with SELinux
 > enforcing.
 
 ---
@@ -109,7 +109,7 @@ its test suite.
 | | |
 |---|---|
 | Maturity | **early public beta** — features work and are tested, but the project is young and the API/behaviour can change between releases |
-| Current release | 1.1.39 (runtime bundle, signed) |
+| Current release | 1.1.40 (runtime bundle, signed) |
 | Tested on | Rocky Linux 9.7 and 9.9, SELinux enforcing, fresh install + full regression |
 | Isolation model | per-account system user, systemd cgroup limits (CPU/RAM/IO/IOPS), disk/inode quotas, SELinux MCS categories, pooled PHP-FPM |
 | Not included | SpamAssassin anti-spam, uptime watchdog, threat protection, CVE patching, bot shield, per-account IPv6 and per-account PHP masters (paid edition) |

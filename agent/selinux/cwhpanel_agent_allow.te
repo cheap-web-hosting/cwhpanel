@@ -111,6 +111,7 @@ require {
 	type journalctl_exec_t;
 	type hostname_exec_t;
 	type init_var_lib_t;
+	type systemd_logind_var_lib_t;
 	type dovecot_t;
 	type bin_t;
 	type cwhpanel_agent_sock_t;
@@ -640,3 +641,5 @@ allow cwhpanel_agent_t dovecot_var_run_t:sock_file { getattr read write };
 allow cwhpanel_agent_t init_var_lib_t:dir search;
 # sievec reads the dovecot config through /run/dovecot/config (dovecot_t peer)
 allow cwhpanel_agent_t dovecot_t:unix_stream_socket connectto;
+# stale linger file removal (user.delete fallback): /var/lib/systemd/linger
+allow cwhpanel_agent_t systemd_logind_var_lib_t:dir { search write remove_name };
